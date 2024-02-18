@@ -13,9 +13,8 @@ This CLI app allows you to visualize a graph using the `plot_graph` function pro
 
 4. Run the following command:
 
-python main.py <path_to_graph_file> [--xlim XMIN XMAX] [--ylim YMIN YMAX] [--layout {circular, random}] [--axis] [--color COLOR] [--node_tag]
+`python main.py <path_to_graph_file> [--xlim XMIN XMAX] [--ylim YMIN YMAX] [--layout {circular, random}] [--axis] [--color COLOR] [--node_tag]`
 
-lua
 
 
 Replace `<path_to_graph_file>` with the path to the file containing the graph data in DOT format.
@@ -32,8 +31,6 @@ Replace `<path_to_graph_file>` with the path to the file containing the graph da
 ### Example:
 
 python main.py graph_data.dot --xlim 0 10 --ylim 0 10 --layout random --axis --color red --node_tag
-
-vbnet
 
 
 This command visualizes the graph stored in `graph_data.dot` file using a random layout, with custom x-axis and y-axis limits set to [0, 10], displaying axis on the plot, using red color for nodes, and displaying node numbers on the plot.
