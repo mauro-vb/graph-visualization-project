@@ -36,8 +36,8 @@ def plot_graph(adj_matrix, custom_xlim = (0,1), custom_ylim = (0,1), layout_type
     ax = fig.gca()
 
     # making slightly bigger x_lim and y_lim for better visualization
-    x_lim = custom_xlim[0]- (custom_xlim[1]/10) , custom_xlim[1]+ (custom_xlim[1]/10)
-    y_lim = custom_ylim[0]- (custom_ylim[1]/10) , custom_ylim[1]+ (custom_ylim[1]/10)
+    x_lim = custom_xlim[0]- (custom_xlim[1]/20) , custom_xlim[1]+ (custom_xlim[1]/20)
+    y_lim = custom_ylim[0]- (custom_ylim[1]/20) , custom_ylim[1]+ (custom_ylim[1]/20)
     ax.set_xlim(x_lim)
     ax.set_ylim(y_lim)
 
