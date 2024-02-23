@@ -11,12 +11,12 @@ G.read(dot_file_path)
 graph = Graph()
 
 for node in G.nodes():
-    new_node = Node(label=node)
-
+    new_node = Node(label=node.get_name())
     for potential_neighbour in G.nodes():
         if G.has_edge(node, potential_neighbour)*1:
-            new_node.add_neighbour(node)
+            new_node.add_neighbour(potential_neighbour.get_name())
     graph.add_node(new_node=new_node)
+
 
 graph.generate_circular_coordinates()
 graph.generate_edges()

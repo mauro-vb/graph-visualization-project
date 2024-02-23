@@ -16,11 +16,11 @@ class Node:
 
 class Graph:
     def __init__(self):
-        self.nodes = set()
+        self.nodes = {}
         self.edges = set()
 
     def add_node(self, new_node:Node):
-        self.nodes.add(new_node)
+        self.nodes[new_node.label] = new_node
 
     def plot_graph(self, custom_xlim = (0,1), custom_ylim = (0,1), axis=False, color = 'green', node_tag = True):
 
@@ -46,35 +46,37 @@ class Graph:
         edge_lw = min((custom_xlim[1] - custom_xlim[0]) / (2 * np.sqrt(N)), 0.2)
 
         # draw nodes
-        for node in self.nodes:
+        for node in self.nodes.values():
             ax.add_patch(Circle(xy=node.coordinates, radius= node_radius, color = color, alpha=.5))
             if node_tag:
                 plt.text(*node.coordinates, str(node.label), size=7, ha='center', va='center',alpha=.7)
         # draw edges
         for edge in self.edges:
-            print(edge[0],"------",edge[1])
             ax.add_patch(ConnectionPatch(edge[0],edge[1],'data',lw=edge_lw,color='grey'))
 
         plt.axis(axis)
         plt.show();
 
     def generate_edges(self):
-        self.edges.clear() # reset
-        for node in self.nodes:
-            for neighbour_label in node.neighbours:
-                neighbour_node = next((n for n in self.nodes if n.label == neighbour_label), None)
-            if neighbour_node is not None:
+        self.edges.clear()  # reset edges
+        for label, node in self.nodes.items():
+            for neighbour_label in node.neighbours:  # Assuming 'neighbours' contains labels
+                neighbour_node = self.nodes[neighbour_label]
+
                 edge = (node.coordinates, neighbour_node.coordinates)
                 self.edges.add(edge)
 
     def generate_circular_coordinates(self, center=(.5,.5), radius=.5):
         N = len(self.nodes)
         cx, cy = center
-        for i, node in enumerate(self.nodes):
+        i = 0
+        for node in self.nodes.values():
             angle = 2* np.pi * i / N
             x = cx + radius * np.cos(angle)
             y = cy + radius * np.sin(angle)
             node.coordinates = (x,y)
+            i += 1
+
 
     def generate_random_coordinates(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0)):
         for node in self.nodes:
