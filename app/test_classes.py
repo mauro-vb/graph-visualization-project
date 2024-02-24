@@ -1,14 +1,14 @@
-from classes import Node, Graph
+from classes import Node, Graph, Tree
 import pygraphviz
 
-dot_file_path = 'Datasets/LeagueNetwork.dot'
+dot_file_path = 'Datasets/LesMiserables.dot'
 
 # read dot file
 G = pygraphviz.AGraph()
 G.read(dot_file_path)
 
 # instantiate own graph
-graph = Graph()
+graph = Tree()
 
 for node in G.nodes():
     new_node = Node(label=node.get_name())
@@ -17,7 +17,5 @@ for node in G.nodes():
             new_node.add_neighbour(potential_neighbour.get_name())
     graph.add_node(new_node=new_node)
 
-
-graph.generate_circular_coordinates()
-graph.generate_edges()
-graph.plot_graph(axis=True)
+graph.compute_bfs_tree('1')
+graph.root.print_tree()
