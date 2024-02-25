@@ -17,5 +17,5 @@ for node in G.nodes():
             new_node.add_neighbour(potential_neighbour.get_name())
     graph.add_node(new_node=new_node)
 
-graph.compute_bfs_tree('1')
+graph.compute_dfs_tree('1')
 graph.root.print_tree()

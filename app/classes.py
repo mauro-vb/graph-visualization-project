@@ -17,6 +17,8 @@ class TreeNode(Node):
         super().__init__(label)
         self.children = set()
         self.parent = None
+        # maybe add non tree edges
+        #######################
 
     def add_child(self, child):
         child.parent = self
@@ -28,11 +30,10 @@ class TreeNode(Node):
         while current_parent: # while parent exists
             current_parent = current_parent.parent # check parent of parent recursively
             level += 1 # increase level count
-
         return level
 
     def print_tree(self):
-        spaces = ' ' * self.get_level() * 1
+        spaces = ' ' * self.get_level() * 3
         prefix = spaces + "|__" if self.parent else ""
 
         print(prefix + self.label)
@@ -156,22 +157,26 @@ class Tree(Graph):
                     neighbour_tree_node.parent = current_tree_node
                     current_tree_node.add_child(neighbour_tree_node)
 
-## NEEDS FIXNG based in TreeNode data strucuture
     def compute_dfs_tree(self, root):
         visited = set()  # for storing visited nodes
-        self.parent_dict = {}
-
+        #self.parent_dict = {}
 
         root = self.nodes[root]
+        self.root = TreeNode(root.label)
 
         def dfs(nodes, root):
+            current_tree_node = self.find_tree_node(root.label)
             if root not in visited:
                 visited.add(root)
                 for neighbour_label in root.neighbours:
                     neighbour = self.nodes[neighbour_label]
-                    self.parent_dict[neighbour] = root # set 'root' as parent
+                    #self.parent_dict[neighbour] = root # set 'root' as parent
+                    # create TreeNode for the neighbour and set its parent
+                    neighbour_tree_node = TreeNode(neighbour_label)
+                    neighbour_tree_node.parent = current_tree_node
+                    current_tree_node.add_child(neighbour_tree_node)
                     dfs(nodes, neighbour) # recursive call to go into depth for each neighbouring node
-
+        dfs(self.nodes, root)
 
     def find_tree_node(self, label):
         """Find the TreeNode corresponding to the given label."""
@@ -181,6 +186,6 @@ class Tree(Graph):
             if current_node.label == label:
                 return current_node
             queue.extend(current_node.children)  # add children nodes to the queue
-        return None
 
-        dfs(self.nodes,root)
+    def draw_tree(self):
+        pass
