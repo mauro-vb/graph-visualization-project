@@ -20,6 +20,7 @@ class TreeNode(Node):
         self.parent = None
         # maybe add non tree edges
         #######################
+        self.non_tree_neighbours = []
 
         # for drawing
         self.width = None
@@ -72,7 +73,7 @@ class TreeNode(Node):
                 child.compute_coordinates(child_x, 0 - child.get_level() * x_y_ratio, x_y_ratio)
                 starting_x += child.width
 
-    def draw_tree(self,labels=False):
+    def draw_tree(self,labels=False, non_tree_edges=False):
         self.compute_drawing_params()
         self.compute_coordinates(0,0, self.x_y_ratio)
         fig = plt.figure()
@@ -85,11 +86,17 @@ class TreeNode(Node):
             if node.children:
                 for child in node.children:
                     ax.add_patch(ConnectionPatch((node.coordinates), child.coordinates,'data',lw=.5,color='grey'))
-
                     draw_patch(child, ax)
+            if non_tree_edges:
+
+                for nt_neighbour_label in node.non_tree_neighbours:
+                    print(nt_neighbour_label)
+                    nt_neighbour_node = self.find_tree_node(nt_neighbour_label)
+                    ax.add_patch(ConnectionPatch((node.coordinates), nt_neighbour_node.coordinates,'data',lw=.1,color='blue',linestyle=":"))
 
 
         draw_patch(self, ax)
+
         margin = 2
         x_lim = self.width // 2
         ax.set_xlim((-x_lim-margin,x_lim+margin))
@@ -100,8 +107,17 @@ class TreeNode(Node):
         # ax.set_frame_on(False)
         # ax.tick_params(tick1On=False,which='both')
         # ax.minorticks_on()
-        plt.show();
+        #plt.show();
         return fig
+
+    def find_tree_node(self, label):
+        """Find the TreeNode corresponding to the given label."""
+        queue = [self]
+        while queue:
+            current_node = queue.pop(0)
+            if current_node.label == label:
+                return current_node
+            queue.extend(current_node.children)  # add children nodes to the queue
 
     def print_tree(self):
         spaces = ' ' * self.get_level() * 3
@@ -160,7 +176,7 @@ class Graph:
             ax.add_patch(ConnectionPatch(edge[0],edge[1],'data',lw=edge_lw,color='grey'))
 
         plt.axis(axis)
-        plt.show();
+        #plt.show();
         return fig
 
     def generate_edges(self):
@@ -208,6 +224,8 @@ class Tree(Graph):
             current_node_label = current_node.label
 
             current_tree_node = self.find_tree_node(current_node_label)  # find corresponding TreeNode
+            for neighbour_label in current_node.neighbours:
+                current_tree_node.non_tree_neighbours.append(neighbour_label) # track non tree related neighbour
 
             for neighbour_label in current_node.neighbours:  # loop over neighbors of current node
                 if neighbour_label not in visited:  # if neighbour has not been visited
@@ -219,7 +237,6 @@ class Tree(Graph):
                     neighbour_tree_node.parent = current_tree_node
                     current_tree_node.add_child(neighbour_tree_node)
 
-
     def compute_dfs_tree(self, root):
         visited = set()  # for storing visited nodes
 
@@ -228,16 +245,21 @@ class Tree(Graph):
 
         def dfs(nodes, root):
             current_tree_node = self.find_tree_node(root.label)
+
             if root.label not in visited:
                 visited.add(root.label)
                 for neighbour_label in root.neighbours:
+
                     neighbour = self.nodes[neighbour_label]
                     neighbour_tree_node = TreeNode(neighbour_label)
+                    current_tree_node.non_tree_neighbours.append(neighbour_label) # track non tree related neighbour
+
                     if neighbour_label not in visited:
                         neighbour_tree_node.parent = current_tree_node
                         current_tree_node.add_child(neighbour_tree_node)
 
                     dfs(nodes, neighbour) # recursive call to go into depth for each neighbouring node
+            print(current_tree_node.non_tree_neighbours)
         dfs(self.nodes, root)
 
     def find_tree_node(self, label):

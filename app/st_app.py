@@ -24,7 +24,8 @@ def main():
                 graph.add_node(new_node)
 
             traversal_options = ["DFS", "BFS"]
-            labels = st.checkbox("labels")
+            labels = st.checkbox("Labels")
+            non_tree_edges = st.checkbox("Non Tree Edges")
             traversal_type = st.selectbox("Choose Tree Traversal Type", traversal_options)
             root_label = st.text_input("Enter the root label for your tree:","1")
 
@@ -34,14 +35,14 @@ def main():
                 st.pyplot(fig=fig)
             elif traversal_type == "BFS":
                 graph.compute_bfs_tree(root_label)
-                fig = graph.root.draw_tree(labels)
+                fig = graph.root.draw_tree(labels=labels, non_tree_edges=non_tree_edges)
                 st.pyplot(fig=fig)
 
         elif visualization_type == "Graph":
             layout_options = ["Random", "Circular"]
             layout_type = st.selectbox("Choose Graph Layout Type", layout_options)
             axis = st.checkbox("axis")
-            labels = st.checkbox("labels")
+            labels = st.checkbox("Labels")
             graph = Graph()
 
             for node in G.nodes():

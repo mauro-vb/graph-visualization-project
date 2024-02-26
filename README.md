@@ -1,42 +1,33 @@
+## Graph Visualization App
 
-# Graph Visualization CLI App
+This repository contains a Python application for visualizing graphs using Matplotlib. You can generate visualizations of your graphs and customize various aspects of the plot.
 
-This CLI app allows you to visualize a graph using the `plot_graph` function provided in the `plot.py` module.
+### Installation
 
-## Usage
+1. Clone or download the repository to your local machine.
+2. Navigate to the directory containing the `main.py` file in your terminal.
+3. Install the required dependencies using pip: `pip install -r requirements.txt`.
 
-1. First, ensure you have Python installed on your system.
+### Usage
 
-2. Clone or download the repository to your local machine.
+#### Running the Streamlit App
 
-3. Navigate to the directory containing the `main.py` file in your terminal.
+1. Navigate to the directory containing the `st_app.py` file in your terminal.
+2. Run the command: `streamlit run st_app.py`.
+3. Access the app in your web browser at [http://localhost:8501](http://localhost:8501).
 
-4. Run the following command:
+#### Running the Graph Visualization Script
 
-`python main.py <path_to_graph_file> [--xlim XMIN XMAX] [--ylim YMIN YMAX] [--layout {circular, random}] [--axis] [--color COLOR] [--node_tag]`
+1. Navigate to the directory containing the `main.py` file in your terminal.
+2. Run the command: `python main.py <path_to_graph_file> [--options]`.
 
+   Replace `<path_to_graph_file>` with the path to the graph file in DOT format.
 
+#### Optional Arguments
 
-Replace `<path_to_graph_file>` with the path to the file containing the graph data in DOT format.
+- `--options`: Add optional arguments like `--xlim`, `--ylim`, `--layout`, `--axis`, `--color`, and `--node_tag` for customization.
 
-### Optional Arguments:
+#### Example
 
-- `--xlim XMIN XMAX`: Set custom x-axis limits for the plot. Default is [0, 1].
-- `--ylim YMIN YMAX`: Set custom y-axis limits for the plot. Default is [0, 1].
-- `--layout {circular, random}`: Choose the layout type for graph visualization. Default is circular.
-- `--axis`: Display axis on the plot.
-- `--color COLOR`: Choose the color for nodes. Default is green. You can choose from a variety of colors provided by Matplotlib.
-- `--node_tag`: Display node numbers on the plot.
-
-### Example:
-
+```bash
 python main.py graph_data.dot --xlim 0 10 --ylim 0 10 --layout random --axis --color red --node_tag
-
-
-This command visualizes the graph stored in `graph_data.dot` file using a random layout, with custom x-axis and y-axis limits set to [0, 10], displaying axis on the plot, using red color for nodes, and displaying node numbers on the plot.
-
-## Dependencies
-
-- numpy
-- matplotlib
-- pygraphviz
