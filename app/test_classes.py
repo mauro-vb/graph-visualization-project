@@ -8,7 +8,7 @@ G = pygraphviz.AGraph()
 G.read(dot_file_path)
 
 # instantiate own graph
-graph = Tree()
+graph = Tree()# OR GRAPH
 
 for node in G.nodes():
     new_node = Node(label=node.get_name())

@@ -101,6 +101,7 @@ class TreeNode(Node):
         # ax.tick_params(tick1On=False,which='both')
         # ax.minorticks_on()
         plt.show();
+        return fig
 
     def print_tree(self):
         spaces = ' ' * self.get_level() * 3
@@ -129,7 +130,7 @@ class Graph:
     def plot_graph(self, custom_xlim = (0,1), custom_ylim = (0,1), axis=False, color = 'green', node_tag = True):
 
         # check if edges have been generated
-        if self.edges:
+        if not self.edges:
             self.generate_edges()
 
         # get graph size
@@ -160,6 +161,7 @@ class Graph:
 
         plt.axis(axis)
         plt.show();
+        return fig
 
     def generate_edges(self):
         self.edges.clear()  # reset edges
@@ -182,7 +184,7 @@ class Graph:
             i += 1
 
     def generate_random_coordinates(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0)):
-        for node in self.nodes:
+        for node in self.nodes.values():
             x = np.random.uniform(x_range[0], x_range[1])
             y = np.random.uniform(y_range[0], y_range[1])
             node.coordinates = (x,y)
