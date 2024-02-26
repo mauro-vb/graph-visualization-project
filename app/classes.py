@@ -20,17 +20,82 @@ class TreeNode(Node):
         # maybe add non tree edges
         #######################
 
+        # for drawing
+        self.width = None
+        self.level = None
+        self.height = None
+        self.x_y_ratio = None
+
     def add_child(self, child):
         child.parent = self
         self.children.add(child)
 
+    def get_height(self):
+        if not self.children: # base case
+            return 0
+        # recursively compare childrens heights
+        self.height = 1 + max([child.get_height() for child in self.children])
+        return self.height
+
+    def compute_drawing_params(self):
+        self.calculate_width()
+        self.get_height()
+        self.x_y_ratio = (self.width//2) // self.height
+
     def get_level(self): # count number of parents above self
-        level = 0
+        self.level = 0
         current_parent = self.parent
         while current_parent: # while parent exists
             current_parent = current_parent.parent # check parent of parent recursively
-            level += 1 # increase level count
-        return level
+            self.level += 1 # increase level count
+
+        return self.level
+
+    def calculate_width(self):
+        self.width = 0
+        # Calculate width recursively for each child
+        children_widths = [child.calculate_width() for child in self.children]
+
+        # Width of current node is 1 + sum of widths of children's nodes
+        self.width = 1 + sum(children_widths)
+        return self.width
+
+    def compute_coordinates(self, x, y, x_y_ratio = 1):
+
+        self.coordinates = (x, y)
+        if self.children:
+            total_children_width = sum([child.width for child in self.children])
+            starting_x = x - total_children_width // 2
+            for child in self.children:
+                child_x = starting_x + child.width // 2
+                child.compute_coordinates(child_x, 0 - child.get_level() * x_y_ratio, x_y_ratio)
+                starting_x += child.width
+
+    def draw_tree(self):
+        self.compute_drawing_params()
+        self.compute_coordinates(0,0, self.x_y_ratio)
+        fig = plt.figure()
+        ax = fig.gca()
+        plt.axis(False)
+        def draw_patch(node, ax):
+            ax.add_patch(Circle(xy=node.coordinates, radius= .5, color = 'green', alpha=.3))
+            if node.children:
+                for child in node.children:
+                    ax.add_patch(ConnectionPatch((node.coordinates), child.coordinates,'data',lw=.5,color='grey'))
+                    draw_patch(child, ax)
+
+        draw_patch(self, ax)
+        margin = 2
+        x_lim = self.width // 2
+        ax.set_xlim((-x_lim-margin,x_lim+margin))
+        ax.set_ylim((-self.height * self.x_y_ratio - margin, 0+margin))
+        # plt.grid(which='minor', axis='y', linewidth=0.5, linestyle=':')
+        # ax.set_xticklabels([])
+        # ax.set_yticklabels([])
+        # ax.set_frame_on(False)
+        # ax.tick_params(tick1On=False,which='both')
+        # ax.minorticks_on()
+        plt.show();
 
     def print_tree(self):
         spaces = ' ' * self.get_level() * 3
@@ -41,21 +106,11 @@ class TreeNode(Node):
             for child in self.children:
                 child.print_tree()
 
-
-# binary tree node class
-class BTNode(Node):
-    def __init__(self, label):
-        super().__init__(label)
-        self.left = None
-        self.right = None
-
-    def add_child(self, child_node):
-        if not self.left:
-            self.left = BTNode(child_node)
-        elif not self.right:
-            self.right = BTNode(child_node)
-        else:
-            print("Node already has 2 children")
+    def print_coordinates(self):
+        print(self.coordinates)
+        if self.children:
+            for child in self.children:
+                child.print_coordinates()
 
 
 class Graph:
@@ -186,6 +241,3 @@ class Tree(Graph):
             if current_node.label == label:
                 return current_node
             queue.extend(current_node.children)  # add children nodes to the queue
-
-    def draw_tree(self):
-        pass

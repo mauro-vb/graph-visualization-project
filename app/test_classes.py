@@ -1,7 +1,7 @@
 from classes import Node, Graph, Tree
 import pygraphviz
 
-dot_file_path = 'Datasets/LesMiserables.dot'
+dot_file_path = 'Datasets/LeagueNetwork.dot'
 
 # read dot file
 G = pygraphviz.AGraph()
@@ -17,5 +17,5 @@ for node in G.nodes():
             new_node.add_neighbour(potential_neighbour.get_name())
     graph.add_node(new_node=new_node)
 
-graph.compute_dfs_tree('1')
-graph.root.print_tree()
+graph.compute_bfs_tree('1')
+graph.root.draw_tree()
