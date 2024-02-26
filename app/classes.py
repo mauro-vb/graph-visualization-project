@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle, ConnectionPatch
+from collections import deque
 
 class Node:
     def __init__(self, label):
@@ -40,7 +41,7 @@ class TreeNode(Node):
     def compute_drawing_params(self):
         self.calculate_width()
         self.get_height()
-        self.x_y_ratio = (self.width//2) // self.height
+        self.x_y_ratio = max((self.width//2) // self.height, self.height // (self.width//2))
 
     def get_level(self): # count number of parents above self
         self.level = 0
@@ -71,7 +72,7 @@ class TreeNode(Node):
                 child.compute_coordinates(child_x, 0 - child.get_level() * x_y_ratio, x_y_ratio)
                 starting_x += child.width
 
-    def draw_tree(self):
+    def draw_tree(self,labels=False):
         self.compute_drawing_params()
         self.compute_coordinates(0,0, self.x_y_ratio)
         fig = plt.figure()
@@ -79,10 +80,14 @@ class TreeNode(Node):
         plt.axis(False)
         def draw_patch(node, ax):
             ax.add_patch(Circle(xy=node.coordinates, radius= .5, color = 'green', alpha=.3))
+            if labels:
+                plt.text(*node.coordinates, str(node.label), size=6, ha='center', va='baseline',alpha=.5)
             if node.children:
                 for child in node.children:
                     ax.add_patch(ConnectionPatch((node.coordinates), child.coordinates,'data',lw=.5,color='grey'))
+
                     draw_patch(child, ax)
+
 
         draw_patch(self, ax)
         margin = 2
@@ -212,24 +217,24 @@ class Tree(Graph):
                     neighbour_tree_node.parent = current_tree_node
                     current_tree_node.add_child(neighbour_tree_node)
 
+
     def compute_dfs_tree(self, root):
         visited = set()  # for storing visited nodes
-        #self.parent_dict = {}
 
         root = self.nodes[root]
         self.root = TreeNode(root.label)
 
         def dfs(nodes, root):
             current_tree_node = self.find_tree_node(root.label)
-            if root not in visited:
-                visited.add(root)
+            if root.label not in visited:
+                visited.add(root.label)
                 for neighbour_label in root.neighbours:
                     neighbour = self.nodes[neighbour_label]
-                    #self.parent_dict[neighbour] = root # set 'root' as parent
-                    # create TreeNode for the neighbour and set its parent
                     neighbour_tree_node = TreeNode(neighbour_label)
-                    neighbour_tree_node.parent = current_tree_node
-                    current_tree_node.add_child(neighbour_tree_node)
+                    if neighbour_label not in visited:
+                        neighbour_tree_node.parent = current_tree_node
+                        current_tree_node.add_child(neighbour_tree_node)
+
                     dfs(nodes, neighbour) # recursive call to go into depth for each neighbouring node
         dfs(self.nodes, root)
 
