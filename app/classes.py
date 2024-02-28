@@ -7,7 +7,7 @@ from collections import deque
 class Node:
     def __init__(self, label):
         self.label = label
-        self.coordinates : tuple
+        self.coordinates = None
         self.neighbours = [] # adjacency_list
         self.weights = {} # store weight values in dictionary {node_labe: weight}
 
@@ -176,7 +176,7 @@ class Graph:
             ax.add_patch(ConnectionPatch(edge[0],edge[1],'data',lw=edge_lw,color='grey'))
 
         plt.axis(axis)
-        #plt.show();
+        plt.show();
         return fig
 
     def generate_edges(self):
@@ -188,7 +188,7 @@ class Graph:
                 edge = (node.coordinates, neighbour_node.coordinates)
                 self.edges.add(edge)
 
-    def generate_circular_coordinates(self, center=(.5,.5), radius=.5):
+    def generate_circular_coordinates(self, center=(.5,.5), radius=5):
         N = len(self.nodes)
         cx, cy = center
         i = 0
@@ -205,30 +205,50 @@ class Graph:
             y = np.random.uniform(y_range[0], y_range[1])
             node.coordinates = (x,y)
 
-    def force_directed_graph(self, l=1, k = 1.0, eps=1, cd=.99):
-        def rep_force(pv, pu, rep_c=1):
-            dx = pu[0] - pv[0]
-            dy = pu[1] - pv[1]
+    def force_directed_graph(self, ideal_length=.1, max_it = 1.0, threshold=10, cooling=.90):
+        def rep_force(pn1, pn2, rep_c=1):
+            dx = pn2[0] - pn1[0]
+            dy = pn2[1] - pn1[1]
             euclidian_distance = math.sqrt(dx**2 + dy**2)
             if euclidian_distance!=0: # avoid division by 0
                 force = rep_c / euclidian_distance**2
             else:
                 force = rep_c / .001
-            return (force * dx, force * dy)
+            return np.array([force * dx, force * dy])
 
-        def spr_force(pv, pu, spr_c=2):
-            dx = pu[0] - pv[0]
-            dy = pu[1] - pv[1]
+        def spr_force(pn1, pn2, spr_c=2):
+            dx = pn2[0] - pn1[0]
+            dy = pn2[1] - pn1[1]
             euclidian_distance = math.sqrt(dx**2 + dy**2)
-            force = spr_c * math.log(euclidian_distance/l)
-            return (force * dx, force * dy)
 
-        if not self.edges:
-            self.generate_edges()
+            if euclidian_distance!=0: # avoid division by 0
+                force = spr_c * math.log(euclidian_distance/ideal_length)
+            else:
+                force = 0
+
+            return np.array([force * dx, force * dy])
+
         t = 0
-        while k > t:
-            for node in self.nodes:
-                pass
+
+        while max_it > t:
+            forces = {}
+            max_force = 0
+            for i in self.nodes.keys():
+                rep_force_sum = sum([rep_force(self.nodes[i].coordinates, self.nodes[other_node].coordinates) for other_node in self.nodes if other_node != i])
+                attr_force_sum = sum([spr_force(self.nodes[i].coordinates, self.nodes[neighbouring_node].coordinates) for neighbouring_node in self.nodes[i].neighbours])
+                total_force = rep_force_sum + attr_force_sum
+                forces[i] = total_force
+                if np.linalg.norm(total_force) > max_force:
+                    max_force = np.linalg.norm(total_force)
+
+            for i in self.nodes.keys():
+                self.nodes[i].coordinates = tuple(np.array(self.nodes[i].coordinates) + forces[i] * cooling)
+
+            if max_force < threshold:
+                break
+            t += .0001
+
+
 
 class Tree(Graph):
     def __init__(self):
@@ -283,7 +303,6 @@ class Tree(Graph):
                         current_tree_node.add_child(neighbour_tree_node)
 
                     dfs(nodes, neighbour) # recursive call to go into depth for each neighbouring node
-            print(current_tree_node.non_tree_neighbours)
         dfs(self.nodes, root)
 
     def find_tree_node(self, label):
