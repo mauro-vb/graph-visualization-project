@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 from matplotlib.patches import Circle, ConnectionPatch
 from collections import deque
 
@@ -134,7 +135,6 @@ class TreeNode(Node):
             for child in self.children:
                 child.print_coordinates()
 
-
 class Graph:
     def __init__(self):
         self.nodes = {}
@@ -163,8 +163,8 @@ class Graph:
         ax.set_ylim(y_lim)
 
         # calculate appropriate node radius based on graph size (N) and bounding box (x_lim,y_lim)
-        node_radius = (custom_xlim[1] - custom_xlim[0]) / (5 * np.sqrt(N))
-        edge_lw = min((custom_xlim[1] - custom_xlim[0]) / (2 * np.sqrt(N)), 0.2)
+        node_radius = (custom_xlim[1] - custom_xlim[0]) / (5 * math.sqrt(N))
+        edge_lw = min((custom_xlim[1] - custom_xlim[0]) / (2 * math.sqrt(N)), 0.2)
 
         # draw nodes
         for node in self.nodes.values():
@@ -205,6 +205,30 @@ class Graph:
             y = np.random.uniform(y_range[0], y_range[1])
             node.coordinates = (x,y)
 
+    def force_directed_graph(self, l=1, k = 1.0, eps=1, cd=.99):
+        def rep_force(pv, pu, rep_c=1):
+            dx = pu[0] - pv[0]
+            dy = pu[1] - pv[1]
+            euclidian_distance = math.sqrt(dx**2 + dy**2)
+            if euclidian_distance!=0: # avoid division by 0
+                force = rep_c / euclidian_distance**2
+            else:
+                force = rep_c / .001
+            return (force * dx, force * dy)
+
+        def spr_force(pv, pu, spr_c=2):
+            dx = pu[0] - pv[0]
+            dy = pu[1] - pv[1]
+            euclidian_distance = math.sqrt(dx**2 + dy**2)
+            force = spr_c * math.log(euclidian_distance/l)
+            return (force * dx, force * dy)
+
+        if not self.edges:
+            self.generate_edges()
+        t = 0
+        while k > t:
+            for node in self.nodes:
+                pass
 
 class Tree(Graph):
     def __init__(self):
