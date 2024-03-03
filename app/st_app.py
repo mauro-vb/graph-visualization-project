@@ -40,6 +40,9 @@ def main():
 
         elif visualization_type == "Graph":
             fd = st.checkbox("force directed graph")
+            if fd:
+                embedder_type = st.radio(label="embedder type",options=["Fruchterman & Reingold", "Custom"])
+
             layout_options = ["Random", "Circular"]
             layout_type = st.selectbox("Choose Graph Layout Type", layout_options)
             axis = st.checkbox("axis")
@@ -59,7 +62,7 @@ def main():
             elif layout_type == "Circular":
                 graph.generate_circular_coordinates()
             if fd:
-                graph.fruchterman_reingold()
+                graph.force_directed_graph(embedder_type=embedder_type)
             fig = graph.plot_graph(axis=axis,node_tag=labels)
             st.pyplot(fig=fig)
 

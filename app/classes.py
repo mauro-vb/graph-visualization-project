@@ -139,11 +139,13 @@ class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
+        self.min_max_x = np.zeros(2)
+        self.min_max_y = np.zeros(2)
 
     def add_node(self, new_node:Node):
         self.nodes[new_node.label] = new_node
 
-    def plot_graph(self, custom_xlim = (0,1), custom_ylim = (0,1), axis=False, color = 'green', node_tag = True):
+    def plot_graph(self, custom_xlim = np.array([0,1]), custom_ylim =  np.array([0,1]), axis=False, color = 'green', node_tag = True):
 
         # check if edges have been generated
         if not self.edges:
@@ -155,16 +157,35 @@ class Graph:
         # initialize plt figure
         fig = plt.figure(figsize=(5,5))
         ax = fig.gca()
-        # make slightly bigger x_lim and y_lim for better visualization
-        tmp = 1000/len(self.nodes)
-        x_lim = custom_xlim[0]- (custom_xlim[1]/tmp) , custom_xlim[1]+ (custom_xlim[1]/tmp)
-        y_lim = custom_ylim[0]- (custom_ylim[1]/tmp) , custom_ylim[1]+ (custom_ylim[1]/tmp)
-        ax.set_xlim(x_lim)
-        ax.set_ylim(y_lim)
 
         # calculate appropriate node radius based on graph size (N) and bounding box (x_lim,y_lim)
         node_radius = (custom_xlim[1] - custom_xlim[0]) / (5 * math.sqrt(N))
         edge_lw = min((custom_xlim[1] - custom_xlim[0]) / (2 * math.sqrt(N)), 0.2)
+
+        # make slightly bigger x_lim and y_lim for better visualization
+        if self.min_max_x[0] < custom_xlim[0]:
+            custom_xlim[0]=self.min_max_x[0] - node_radius
+
+        if self.min_max_x[1] > custom_xlim[1]:
+            custom_xlim[1]=self.min_max_x[1] + node_radius
+
+
+        if self.min_max_y[0] < custom_ylim[0]:
+            custom_ylim[0]=self.min_max_y[0] - node_radius
+
+        if self.min_max_y[1] > custom_ylim[1]:
+            custom_ylim[1]=self.min_max_y[1] + node_radius
+
+        tmp = 1000/len(self.nodes)
+        x_lim = custom_xlim[0]- (custom_xlim[1]/tmp) , custom_xlim[1]+ (custom_xlim[1]/tmp)
+        y_lim = custom_ylim[0]- (custom_ylim[1]/tmp) , custom_ylim[1]+ (custom_ylim[1]/tmp)
+
+
+
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
+
+
 
         # draw nodes
         for node in self.nodes.values():
@@ -188,7 +209,7 @@ class Graph:
                 edge = (node.coordinates, neighbour_node.coordinates)
                 self.edges.append(edge)
 
-    def generate_circular_coordinates(self, center=(.5,.5), radius=5):
+    def generate_circular_coordinates(self, center=(.5,.5), radius=.5):
         N = len(self.nodes)
         cx, cy = center
         i = 0
@@ -199,64 +220,30 @@ class Graph:
             node.coordinates = np.array([x,y])
             i += 1
 
+
     def generate_random_coordinates(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0)):
         for node in self.nodes.values():
             x = np.random.uniform(x_range[0], x_range[1])
             y = np.random.uniform(y_range[0], y_range[1])
             node.coordinates = np.array([x,y])
 
-    def force_directed_graph(self, ideal_length=.1, max_it = 1.0, threshold=1e-4, cooling=.90):
-        def rep_force(pn1, pn2, rep_c=1):
-            dx = pn2[0] - pn1[0]
-            dy = pn2[1] - pn1[1]
-            euclidian_distance = math.sqrt(dx**2 + dy**2)
-            if euclidian_distance!=0: # avoid division by 0
-                force = rep_c / euclidian_distance**2
-            else:
-                force = rep_c / .001
-            return np.array([force * dx, force * dy])
 
-        def spr_force(pn1, pn2, spr_c=2):
-            dx = pn2[0] - pn1[0]
-            dy = pn2[1] - pn1[1]
-            euclidian_distance = math.sqrt(dx**2 + dy**2)
+    def force_directed_graph(self, embedder_type = "Fruchterman & Reingold", K=500, epsilon=1e-4, delta=.1, c=.9,c_rep=1,c_spring=2):
 
-            if euclidian_distance!=0: # avoid division by 0
-                force = spr_c * math.log(euclidian_distance/ideal_length)
-            else:
-                force = 0
-
-            return np.array([force * dx, force * dy])
-
-        t = 0
-
-        while max_it > t:
-            forces = {}
-            max_force = 0
-            for i in self.nodes.keys():
-                rep_force_sum = sum([rep_force(self.nodes[i].coordinates, self.nodes[other_node].coordinates) for other_node in self.nodes if other_node != i])
-                attr_force_sum = sum([spr_force(self.nodes[i].coordinates, self.nodes[neighbouring_node].coordinates) for neighbouring_node in self.nodes[i].neighbours])
-                total_force = rep_force_sum + attr_force_sum
-                forces[i] = total_force
-                if np.linalg.norm(total_force) > max_force:
-                    max_force = np.linalg.norm(total_force)
-
-            for i in self.nodes.keys():
-                self.nodes[i].coordinates = tuple(np.array(self.nodes[i].coordinates) + forces[i] * cooling)
-
-            if max_force < threshold:
-                break
-            t += .0001
-
-    def fruchterman_reingold(self, K=50, epsilon=1e-4, delta=.1, c=.9):
-
-        k = c * 1  # Ideal edge length
+        l = c * 1  # Ideal edge length
 
         def repulsive_force(distance, diff):
-            return (k**2 / distance) * diff
+            if embedder_type == "Fruchterman & Reingold":
+                return (l**2 / distance) * diff
+            if embedder_type == "Custom":
+                return c_rep * diff / (distance**2)
 
         def attractive_force(distance, diff):
-            return (distance**2 / k) * diff
+            if embedder_type == "Fruchterman & Reingold":
+                return (distance**2 / l) * diff
+            if embedder_type == "Custom":
+                return c_spring * np.log(distance / l) * diff
+
 
         for iteration in range(K):
             displacement = {v: np.zeros(2) for v in self.nodes.keys()}
@@ -281,11 +268,14 @@ class Graph:
                         displacement[key_v] += disp
 
             # Update positions
+
             for key_v, v in self.nodes.items():
                 length = np.linalg.norm(displacement[key_v])
                 if length > 0:
                     # displacement vector is normalized
                     v.coordinates += delta * displacement[key_v] / length
+                    self.min_max_x = np.array([min(v.coordinates[0],self.min_max_x[0]), max(v.coordinates[0],self.min_max_x[1])])
+                    self.min_max_y = np.array([min(v.coordinates[1],self.min_max_y[0]), max(v.coordinates[1],self.min_max_y[1])])
 
             max_displacement = max(np.linalg.norm(disp) for disp in displacement.values())
 
