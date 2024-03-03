@@ -39,6 +39,7 @@ def main():
                 st.pyplot(fig=fig)
 
         elif visualization_type == "Graph":
+            fd = st.checkbox("force directed graph")
             layout_options = ["Random", "Circular"]
             layout_type = st.selectbox("Choose Graph Layout Type", layout_options)
             axis = st.checkbox("axis")
@@ -52,10 +53,13 @@ def main():
                         new_node.add_neighbour(potential_neighbour.get_name())
                 graph.add_node(new_node)
 
+
             if layout_type == "Random":
                 graph.generate_random_coordinates()
             elif layout_type == "Circular":
                 graph.generate_circular_coordinates()
+            if fd:
+                graph.fruchterman_reingold()
             fig = graph.plot_graph(axis=axis,node_tag=labels)
             st.pyplot(fig=fig)
 

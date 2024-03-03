@@ -138,7 +138,7 @@ class TreeNode(Node):
 class Graph:
     def __init__(self):
         self.nodes = {}
-        self.edges = set()
+        self.edges = []
 
     def add_node(self, new_node:Node):
         self.nodes[new_node.label] = new_node
@@ -155,10 +155,10 @@ class Graph:
         # initialize plt figure
         fig = plt.figure(figsize=(5,5))
         ax = fig.gca()
-
         # make slightly bigger x_lim and y_lim for better visualization
-        x_lim = custom_xlim[0]- (custom_xlim[1]/20) , custom_xlim[1]+ (custom_xlim[1]/20)
-        y_lim = custom_ylim[0]- (custom_ylim[1]/20) , custom_ylim[1]+ (custom_ylim[1]/20)
+        tmp = 1000/len(self.nodes)
+        x_lim = custom_xlim[0]- (custom_xlim[1]/tmp) , custom_xlim[1]+ (custom_xlim[1]/tmp)
+        y_lim = custom_ylim[0]- (custom_ylim[1]/tmp) , custom_ylim[1]+ (custom_ylim[1]/tmp)
         ax.set_xlim(x_lim)
         ax.set_ylim(y_lim)
 
@@ -176,17 +176,17 @@ class Graph:
             ax.add_patch(ConnectionPatch(edge[0],edge[1],'data',lw=edge_lw,color='grey'))
 
         plt.axis(axis)
-        plt.show();
+        #plt.show();
         return fig
 
     def generate_edges(self):
-        self.edges.clear()  # reset edges
+        self.edges = []  # reset edges
         for label, node in self.nodes.items():
             for neighbour_label in node.neighbours:  # Assuming 'neighbours' contains labels
                 neighbour_node = self.nodes[neighbour_label]
 
                 edge = (node.coordinates, neighbour_node.coordinates)
-                self.edges.add(edge)
+                self.edges.append(edge)
 
     def generate_circular_coordinates(self, center=(.5,.5), radius=5):
         N = len(self.nodes)
@@ -196,16 +196,16 @@ class Graph:
             angle = 2* np.pi * i / N
             x = cx + radius * np.cos(angle)
             y = cy + radius * np.sin(angle)
-            node.coordinates = (x,y)
+            node.coordinates = np.array([x,y])
             i += 1
 
     def generate_random_coordinates(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0)):
         for node in self.nodes.values():
             x = np.random.uniform(x_range[0], x_range[1])
             y = np.random.uniform(y_range[0], y_range[1])
-            node.coordinates = (x,y)
+            node.coordinates = np.array([x,y])
 
-    def force_directed_graph(self, ideal_length=.1, max_it = 1.0, threshold=10, cooling=.90):
+    def force_directed_graph(self, ideal_length=.1, max_it = 1.0, threshold=1e-4, cooling=.90):
         def rep_force(pn1, pn2, rep_c=1):
             dx = pn2[0] - pn1[0]
             dy = pn2[1] - pn1[1]
@@ -248,7 +248,51 @@ class Graph:
                 break
             t += .0001
 
+    def fruchterman_reingold(self, K=50, epsilon=1e-4, delta=.1, c=.9):
 
+        k = c * 1  # Ideal edge length
+
+        def repulsive_force(distance, diff):
+            return (k**2 / distance) * diff
+
+        def attractive_force(distance, diff):
+            return (distance**2 / k) * diff
+
+        for iteration in range(K):
+            displacement = {v: np.zeros(2) for v in self.nodes.keys()}
+
+            # Calculate repulsive forces
+            for key_u, u in self.nodes.items():
+                for v in self.nodes.values():
+                    diff = u.coordinates - v.coordinates
+                    distance = np.linalg.norm(diff)
+                    if distance > 0:
+                        disp = repulsive_force(distance, diff)
+                        displacement[key_u] += disp
+
+            # Calculate attractive forces
+            for key_u, u in self.nodes.items():
+                for key_v, v in self.nodes.items():
+                    diff = u.coordinates - v.coordinates
+                    distance = np.linalg.norm(diff)
+                    if distance > 0:
+                        disp = attractive_force(distance, diff)
+                        displacement[key_u] -= disp
+                        displacement[key_v] += disp
+
+            # Update positions
+            for key_v, v in self.nodes.items():
+                length = np.linalg.norm(displacement[key_v])
+                if length > 0:
+                    # displacement vector is normalized
+                    v.coordinates += delta * displacement[key_v] / length
+
+            max_displacement = max(np.linalg.norm(disp) for disp in displacement.values())
+
+            if max_displacement < epsilon:
+                break
+
+        #eturn positions
 
 class Tree(Graph):
     def __init__(self):
