@@ -1,7 +1,7 @@
 from classes import Node, Graph, Tree
 import pygraphviz
 
-dot_file_path = 'Datasets/LesMiserables.dot'
+dot_file_path = 'Datasets/LeagueNetwork.dot'
 
 # read dot file
 G = pygraphviz.AGraph()
@@ -19,7 +19,7 @@ for node in G.nodes():
 
 graph.generate_circular_coordinates()
 
-graph.fruchterman_reingold()
+graph.force_directed_graph('Eades')
 graph.plot_graph()
 #graph.root.draw_tree(labels=True)
 

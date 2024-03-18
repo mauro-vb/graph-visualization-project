@@ -15,12 +15,10 @@ class Node:
         self.neighbours.append(new_neighbour)
 
 class TreeNode(Node):
-    def __init__(self, label):
+    def __init__(self, label, tree_dict=None):
         super().__init__(label)
         self.children = set()
         self.parent = None
-        # maybe add non tree edges
-        #######################
         self.non_tree_neighbours = []
 
         # for drawing
@@ -28,6 +26,31 @@ class TreeNode(Node):
         self.level = None
         self.height = None
         self.x_y_ratio = None
+
+    @classmethod
+    def build_tree_from_dict(cls, tree_dict):
+        # Create a dictionary to store TreeNode instances by label
+        node_instances = {}
+
+        # Recursively build the tree
+        def build_tree_helper(label):
+            if label not in node_instances:
+                node_instances[label] = TreeNode(label)
+
+            node = node_instances[label]
+
+            if label in tree_dict:
+                for child_label in tree_dict[label]:
+                    child_node = build_tree_helper(child_label)
+                    node.add_child(child_node)
+
+            return node
+
+        # Start building the tree from the root node
+        root_label = next(iter(tree_dict))
+        root_node = build_tree_helper(root_label)
+
+        return root_node
 
     def add_child(self, child):
         child.parent = self
@@ -145,7 +168,7 @@ class Graph:
     def add_node(self, new_node:Node):
         self.nodes[new_node.label] = new_node
 
-    def plot_graph(self, custom_xlim = np.array([0,1]), custom_ylim =  np.array([0,1]), axis=False, color = 'green', node_tag = True):
+    def plot_graph(self, axis=False, color = 'green', node_tag = True):
 
         # check if edges have been generated
         if not self.edges:
@@ -159,28 +182,12 @@ class Graph:
         ax = fig.gca()
 
         # calculate appropriate node radius based on graph size (N) and bounding box (x_lim,y_lim)
-        node_radius = (custom_xlim[1] - custom_xlim[0]) / (5 * math.sqrt(N))
-        edge_lw = min((custom_xlim[1] - custom_xlim[0]) / (2 * math.sqrt(N)), 0.2)
-
-        # make slightly bigger x_lim and y_lim for better visualization
-        if self.min_max_x[0] < custom_xlim[0]:
-            custom_xlim[0]=self.min_max_x[0] - node_radius
-
-        if self.min_max_x[1] > custom_xlim[1]:
-            custom_xlim[1]=self.min_max_x[1] + node_radius
+        node_radius = (self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(N))
+        edge_lw = min((self.min_max_y[1] - self.min_max_y[0]) / (2 * math.sqrt(N)), 0.2)
 
 
-        if self.min_max_y[0] < custom_ylim[0]:
-            custom_ylim[0]=self.min_max_y[0] - node_radius
-
-        if self.min_max_y[1] > custom_ylim[1]:
-            custom_ylim[1]=self.min_max_y[1] + node_radius
-
-        tmp = 1000/len(self.nodes)
-        x_lim = custom_xlim[0]- (custom_xlim[1]/tmp) , custom_xlim[1]+ (custom_xlim[1]/tmp)
-        y_lim = custom_ylim[0]- (custom_ylim[1]/tmp) , custom_ylim[1]+ (custom_ylim[1]/tmp)
-
-
+        x_lim = self.min_max_x + np.array([-node_radius,node_radius])
+        y_lim = self.min_max_y + np.array([-node_radius,node_radius])
 
         ax.set_xlim(x_lim)
         ax.set_ylim(y_lim)
@@ -197,7 +204,7 @@ class Graph:
             ax.add_patch(ConnectionPatch(edge[0],edge[1],'data',lw=edge_lw,color='grey'))
 
         plt.axis(axis)
-        #plt.show();
+        plt.show();
         return fig
 
     def generate_edges(self):
@@ -228,20 +235,21 @@ class Graph:
             node.coordinates = np.array([x,y])
 
 
-    def force_directed_graph(self, embedder_type = "Fruchterman & Reingold", K=500, epsilon=1e-4, delta=.1, c=.9,c_rep=1,c_spring=2):
+    def force_directed_graph(self, embedder_type = "Eades", K=500, epsilon=1e-4, delta=.1, c=.9,c_rep=1,c_spring=2):
 
-        l = c * 1  # Ideal edge length
+        l = c * 1  # ideal edge length
 
         def repulsive_force(distance, diff):
             if embedder_type == "Fruchterman & Reingold":
                 return (l**2 / distance) * diff
-            if embedder_type == "Custom":
+            if embedder_type == "Eades":
                 return c_rep * diff / (distance**2)
+
 
         def attractive_force(distance, diff):
             if embedder_type == "Fruchterman & Reingold":
                 return (distance**2 / l) * diff
-            if embedder_type == "Custom":
+            if embedder_type == "Eades":
                 return c_spring * np.log(distance / l) * diff
 
 
@@ -268,7 +276,6 @@ class Graph:
                         displacement[key_v] += disp
 
             # Update positions
-
             for key_v, v in self.nodes.items():
                 length = np.linalg.norm(displacement[key_v])
                 if length > 0:
