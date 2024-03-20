@@ -608,6 +608,9 @@ class Graph:
 
         return layer_assignments
 
+    def distances_matrix(self):
+        pass
+
 def layer_assignments_to_tree(layer_assignments):
     # Initialize tree dictionary
     tree_dict = {}
@@ -645,10 +648,10 @@ def ax_to_fig_coords(ax, xy):
 
     return fig_x, fig_y
 
-g = Graph('Datasets/devonshiredebate_withclusters.dot',directed=True, subgraphs=True,selected_subgraphs=["Youngest Devonian Strata","Gap in the Sequence of Devonshi"])
+g = Graph('Datasets/devonshiredebate_withclusters.dot')
                     # ["Fossils in Pre-Old Red Sandston","Other Regions Than Devonshire","Fossils in Pre-Old Red Sandston"]["Youngest Devonian Strata","Gap in the Sequence of Devonshi"]
-g.random_layout(subgraphs=True)
-g.force_directed_graph(subgraphs=True)
+g.random_layout()
+g.force_directed_graph()
 g.return_subplots()
 plt.show()
 # graph_displays = ["random","circular","random_directed_force","circular_directed_force"]
