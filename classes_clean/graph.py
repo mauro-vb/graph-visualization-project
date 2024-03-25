@@ -1,197 +1,21 @@
+import pygraphviz
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, ConnectionPatch, Rectangle
-import pygraphviz
-import math
 from collections import deque
-import streamlit as st
+import math
 
-class Node:
-    def __init__(self, _id, color='green'):
-        self.id = _id
-        self.in_neighbours = []
-        self.out_neighbours = []
-        self.circle = Circle(xy=np.zeros(2), radius = .1, color = color, alpha=.5)
-
-    def add_out_neighbour(self, neighbour):
-        if neighbour not in self.out_neighbours:
-            self.out_neighbours.append(neighbour)
-
-    def add_in_neighbour(self, neighbour):
-        if neighbour not in self.in_neighbours:
-            self.in_neighbours.append(neighbour)
-
-    def show_label(self,ax):
-        ax.text(*self.circle.center, str(self.id), size=6, ha='center', va='baseline',alpha=.5)
-
-class TreeNode(Node):
-    def __init__(self, label, tree_dict=None):
-        super().__init__(label)
-        self.children = set()
-        self.parent = None
-        self.non_tree_neighbours = []
-
-        # for drawing
-        self.width = None
-        self.level = None
-        self.height = None
-        self.x_y_ratio = None
-
-    @classmethod
-    def build_tree_from_dict(cls, tree_dict):
-        # Create a dictionary to store TreeNode instances by label
-        node_instances = {}
-
-        # Recursively build the tree
-        def build_tree_helper(label):
-            if label not in node_instances:
-                node_instances[label] = TreeNode(label)
-
-            node = node_instances[label]
-
-            if label in tree_dict:
-                for child in tree_dict[label]:
-                    child_node = build_tree_helper(child.id)
-                    node.add_child(child_node)
-
-            return node
-
-        # Start building the tree from the root node
-        root_label = next(iter(tree_dict))
-        root_node = build_tree_helper(root_label)
-
-        return root_node
-
-    def add_child(self, child):
-        child.parent = self
-        self.children.add(child)
-
-    def get_height(self):
-        if not self.children: # base case
-            return 0
-        # recursively compare childrens heights
-        self.height = 1 + max([child.get_height() for child in self.children])
-        return self.height
-
-    def compute_drawing_params(self):
-        self.calculate_width()
-        self.get_height()
-        self.x_y_ratio = max((self.width//2) // self.height, self.height // (self.width//2))
-
-    def get_level(self): # count number of parents above self
-        self.level = 0
-        current_parent = self.parent
-        while current_parent: # while parent exists
-            current_parent = current_parent.parent # check parent of parent recursively
-            self.level += 1 # increase level count
-
-        return self.level
-
-    def calculate_width(self):
-        self.width = 0
-        # Calculate width recursively for each child
-        children_widths = [child.calculate_width() for child in self.children]
-
-        # Width of current node is 1 + sum of widths of children's nodes
-        self.width = 1 + sum(children_widths)
-        return self.width
-
-    def compute_coordinates(self, x, y, x_y_ratio = 1):
-
-        self.coordinates = (x, y)
-        if self.children:
-            total_children_width = sum([child.width for child in self.children])
-            starting_x = x - total_children_width // 2
-            for child in self.children:
-                child_x = starting_x + child.width // 2
-                child.compute_coordinates(child_x, 0 - child.get_level() * x_y_ratio, x_y_ratio)
-                starting_x += child.width
-
-    def draw_tree(self,labels=True, non_tree_edges=False):
-        self.compute_drawing_params()
-        self.compute_coordinates(0,0, self.x_y_ratio)
-        fig = plt.figure()
-        ax = fig.gca()
-        plt.axis(False)
-        def draw_patch(node, ax):
-            ax.add_patch(Circle(xy=node.coordinates, radius= .5, color = 'green', alpha=.3))
-            if labels:
-                plt.text(*node.coordinates, str(node.id), size=6, ha='center', va='baseline',alpha=.5)
-            if node.children:
-                for child in node.children:
-                    ax.add_patch(ConnectionPatch((node.coordinates), child.coordinates,'data',lw=.5,color='grey'))
-                    draw_patch(child, ax)
-            if non_tree_edges:
-
-                for nt_neighbour_label in node.non_tree_neighbours:
-                    nt_neighbour_node = self.find_tree_node(nt_neighbour_label)
-                    ax.add_patch(ConnectionPatch((node.coordinates), nt_neighbour_node.coordinates,'data',lw=.1,color='blue',linestyle=":"))
-
-
-        draw_patch(self, ax)
-
-        margin = 2
-        x_lim = self.width // 2
-        ax.set_xlim((-x_lim-margin,x_lim+margin))
-        ax.set_ylim((-self.height * self.x_y_ratio - margin, 0+margin))
-        plt.grid(which='minor', axis='y', linewidth=0.5, linestyle=':')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_frame_on(False)
-        ax.tick_params(tick1On=False,which='both')
-        ax.minorticks_on()
-        plt.show();
-        return fig
-
-    def find_tree_node(self, label):
-        """Find the TreeNode corresponding to the given label."""
-        queue = [self]
-        while queue:
-            current_node = queue.pop(0)
-            if current_node.label == label:
-                return current_node
-            queue.extend(current_node.children)  # add children nodes to the queue
-
-class Edge:
-    def __init__(self, n1, n2, directed=False):
-        self.directed = directed
-        self.node1, self.node2 = n1, n2
-        self.circle1 = n1.circle
-        self.circle2 = n2.circle
-        self.inverted = False
-        if self.directed:
-            if self.inverted:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=.7, color='red',arrowstyle="->")
-            else:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=.7, color='red',arrowstyle="->")
-        else:
-            self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=.7, color='grey')
-
-    def update_line(self, ax1=None,ax2=None,color="grey", coordsA='data', coordsB='data'):
-        if self.directed:
-            if self.inverted:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, coordsA=coordsA, coordsB=coordsB, axesA=ax1,axesB=ax2, lw=.4, color=color,arrowstyle="->")
-            else:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, coordsA=coordsA, coordsB=coordsB, axesA=ax1,axesB=ax2, lw=.4, color=color,arrowstyle="->")
-        else:
-            self.line = ConnectionPatch(self.circle1.center, self.circle2.center, coordsA=coordsA, coordsB=coordsB, axesA=ax1,axesB=ax2, lw=.4, color=color)
-
-
-    def invert(self):
-        t = self.circle1
-        self.circle1 = self.circle2
-        self.circle2 = t
-        self.inverted = True
+from classes_clean.node import Node
+from classes_clean.edge import Edge
 
 class Graph:
-    def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None):
+    def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None,weight_name="weight"):
         # directed graph
         self.directed = directed
         self.feedback_set = set()
         # graph nodes and edges
         self.nodes, self.edges = {}, {}
         if incoming_dot_file:
-            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs)
+            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name)
 
         # graph figure for visualisation
         self.fig = None if a_subgraph or subgraphs else plt.figure(figsize=(7,7))
@@ -207,8 +31,7 @@ class Graph:
         self.dfs_tree = {}
         self.bfs_tree = {}
 
-
-    def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None):
+    def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight"):
         G = pygraphviz.AGraph()
         G.read(dot_file_path)
 
@@ -248,11 +71,10 @@ class Graph:
                     edge = Edge(self.subgraphs[subgraph_name_1].nodes[node1_id], self.subgraphs[subgraph_name_2].nodes[node2_id], directed=self.directed)
                     self.edges[(node1_id, node2_id)] = edge
 
-
         else:
             # nodes
-            for graphviz_node in G.nodes():
-                node = Node(_id=graphviz_node.get_name())
+            for i, graphviz_node in enumerate(G.nodes()):
+                node = Node(_id=graphviz_node.get_name(),number=i)
                 self.nodes[node.id] = node
 
             # edges
@@ -260,12 +82,14 @@ class Graph:
                 node1_id = graphviz_edge[0]
                 node2_id = graphviz_edge[1]
 
+                weight = graphviz_edge.attr[weight_name] if weight_name in graphviz_edge.attr else None
+
                 self.nodes[node1_id].add_out_neighbour(self.nodes[node2_id])
                 self.nodes[node2_id].add_in_neighbour(self.nodes[node1_id])
                 if self.directed:
-                    edge = Edge(self.nodes[node1_id], self.nodes[node2_id], directed=True)
+                    edge = Edge(self.nodes[node1_id], self.nodes[node2_id], weight=weight, directed=True)
                 else:
-                    edge = Edge(self.nodes[node1_id], self.nodes[node2_id])
+                    edge = Edge(self.nodes[node1_id], self.nodes[node2_id], weight=weight)
                 self.edges[(node1_id, node2_id)] = edge
 
     def find_subgraph_for_node(self, node_id):
@@ -276,7 +100,7 @@ class Graph:
     def add_node(self, node_id):
         self.nodes[node_id] = Node(node_id)
 
-    def return_fig(self,labels=True,axis=False,subgraphs=False, title=None):
+    def return_fig(self,labels=True,axis=True,subgraphs=False, title=None):
         print("Updating Figure")
         if subgraphs:
             for name, subgraph in self.subgraphs.items():
@@ -289,6 +113,7 @@ class Graph:
                 self.ax.add_patch(edge.line)
 
             for node in self.nodes.values():
+                #print(node.circle.center)
                 node.circle.radius = node_radius
                 self.ax.add_patch(node.circle)
                 if labels:
@@ -300,7 +125,6 @@ class Graph:
             self.ax.set_xlim(x_lim)
             self.ax.set_ylim(y_lim)
             self.ax.set_title(title)
-
             plt.axis(axis)
 
             return self.fig
@@ -367,9 +191,11 @@ class Graph:
         return None
 
     def circular_layout(self, center=(.5,.5), radius=.5, subgraphs=False):
+        print("CIRCULAR LAYOUT")
         if subgraphs:
             for subgraph in self.subgraphs.values():
                 subgraph.circular_layout()
+
         N = len(self.nodes)
         cx, cy = center
         i = 0
@@ -381,6 +207,7 @@ class Graph:
             i += 1
 
     def random_layout(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0), subgraphs=False):
+        print("RANDOM LAYOUT")
         if subgraphs:
             for subgraph in self.subgraphs.values():
                 subgraph.random_layout()
@@ -396,9 +223,9 @@ class Graph:
         def dfs_recursive(node_id):
             visited.add(node_id)
             self.dfs_order.append(node_id)
-            for neighbour in self.nodes[node_id].out_neighbours:
+            for neighbour, _ in self.nodes[node_id].out_neighbours:
                 if neighbour.id not in visited:
-                    self.dfs_tree[node_id].append(neighbour)
+                    self.dfs_tree[node_id].append(neighbour.id)
                     self.dfs_tree[neighbour.id] = []
                     dfs_recursive(neighbour.id)
         dfs_recursive(root)
@@ -416,10 +243,11 @@ class Graph:
             visited.add(node_id)
             self.bfs_order.append(node_id)
 
-            for neighbour in self.nodes[node_id].out_neighbours:
+            for neighbour,_ in self.nodes[node_id].out_neighbours:
                 if neighbour.id not in visited:
+                    self.bfs_tree[neighbour.id] = []
                     self.bfs_tree[node_id].append(neighbour.id)
-                    self.bfs_tree[neighbour] = []
+                    #self.bfs_tree[neighbour.id] = []
                     queue.append(neighbour.id)
 
     def force_directed_graph(self, embedder_type="Eades", K=500, epsilon=1e-4, delta=.1, c=.9,c_rep=1,c_spring=2, subgraphs=False):
@@ -609,77 +437,22 @@ class Graph:
         return layer_assignments
 
     def distances_matrix(self):
-        pass
+        N = len(self.nodes)
+        D = np.ones((N,N)) * 10000
+        numbered_nodes = {node.number:node for node in self.nodes.values()}
+        numbered_edges = {(edge.node1.number, edge.node2.number): edge for edge in self.edges.values()}
+        for (i,j), edge in numbered_edges.items():
+            D[i,j] = int(edge.weight) if edge.weight else 1 # if no weights give path vlalue
+            D[j, i] = D[i,j] # symmetry!
 
-def layer_assignments_to_tree(layer_assignments):
-    # Initialize tree dictionary
-    tree_dict = {}
+        #self loop
+        for i in range(N):
+            D[i, i] = 0
 
-    # Group nodes by layer
-    nodes_by_layer = {}
-    for node_id, layer in layer_assignments.items():
-        if layer not in nodes_by_layer:
-            nodes_by_layer[layer] = []
-        nodes_by_layer[layer].append(node_id)
-
-    # Create tree dictionary
-    for layer, nodes in nodes_by_layer.items():
-        if layer not in tree_dict:
-            tree_dict[layer] = []
-        for node_id in nodes:
-            node_dict = {"id": node_id, "children": []}
-            if layer > 0:
-                # Find parent nodes in the previous layer
-                parent_nodes = [parent_id for parent_id, parent_layer in layer_assignments.items() if parent_layer == layer - 1]
-                # Connect the node to its parent nodes
-                for parent_id in parent_nodes:
-                    tree_dict[layer - 1].append(node_dict)
-            else:
-                # If it's the root layer, add directly to the tree dictionary
-                tree_dict[layer].append(node_dict)
-
-    return tree_dict
-
-def ax_to_fig_coords(ax, xy):
-
-    mytrans = ax.transData + ax.figure.transFigure.inverted()
-    trans = mytrans.transform([xy])
-    fig_x, fig_y = trans[0]
-
-    return fig_x, fig_y
-
-g = Graph('Datasets/devonshiredebate_withclusters.dot')
-                    # ["Fossils in Pre-Old Red Sandston","Other Regions Than Devonshire","Fossils in Pre-Old Red Sandston"]["Youngest Devonian Strata","Gap in the Sequence of Devonshi"]
-
-graph_displays = ["random","circular","random_directed_force","circular_directed_force"]
-
-graph_display = st.radio("Choose a display option", graph_displays)
-
-if graph_display == "random":
-    if "random" not in st.session_state:
-        g.random_layout()
-        st.session_state["random"] = g.return_fig()
-
-
-if graph_display == "random_directed_force":
-    if "random_directed_force" not in st.session_state:
-        g.random_layout()
-        g.force_directed_graph()
-        st.session_state["random_directed_force"] = g.return_fig()
-
-if graph_display == "circular":
-    if "circular" not in st.session_state:
-        g.circular_layout()
-        st.session_state["circular"] = g.return_fig()
-
-
-if graph_display == "circular_directed_force":
-    if "circular_directed_force" not in st.session_state:
-        g.circular_layout()
-        g.force_directed_graph()
-        st.session_state["circular_directed_force"] = g.return_fig()
-
-
-
-print(graph_display)
-st.pyplot(st.session_state[graph_display])
+        for k, knode in numbered_nodes.items():
+            for i, inode in numbered_nodes.items():
+                for j, jnode in numbered_nodes.items():
+                    if D[i,j] > D[i,k] + D[k,j]:
+                        D[i,j] = D[i,k] + D[k,j]
+                        D[j, i] = D[i, j] # symmetry!
+        return D
