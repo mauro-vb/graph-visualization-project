@@ -1,6 +1,7 @@
 import pygraphviz
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from collections import deque
 import math
 
@@ -44,9 +45,9 @@ class Graph:
                         self.subgraphs[subgraph_name] = Graph(a_subgraph=True)
 
                         # nodes
-                        for graphviz_node in subgraph.nodes():
+                        for i, graphviz_node in enumerate(subgraph.nodes()):
                             node_id = graphviz_node.get_name()
-                            node = Node(_id=node_id)
+                            node = Node(_id=node_id,number=i)
                             self.subgraphs[subgraph_name].nodes[node_id] = node
                 else:
                     subgraph_name = subgraph.name
