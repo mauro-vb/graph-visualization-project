@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from collections import deque
 import math
+import networkx as nx
 
 from classes_clean.node import Node
 from classes_clean.edge import Edge
@@ -15,6 +16,7 @@ class Graph:
         self.feedback_set = set()
         # graph nodes and edges
         self.nodes, self.edges = {}, {}
+        self.subgraphs = None
         if incoming_dot_file:
             self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name)
 
@@ -31,6 +33,10 @@ class Graph:
         # trees
         self.dfs_tree = {}
         self.bfs_tree = {}
+
+        self.bfs_non_tree_edges = None
+        self.dfs_non_tree_edges = None
+
 
     def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight"):
         G = pygraphviz.AGraph()
@@ -101,7 +107,7 @@ class Graph:
     def add_node(self, node_id):
         self.nodes[node_id] = Node(node_id)
 
-    def return_fig(self,labels=True,axis=True,subgraphs=False, title=None):
+    def return_fig(self,labels=True,axis=False,subgraphs=False, title=None):
         print("Updating Figure")
         if subgraphs:
             for name, subgraph in self.subgraphs.items():
@@ -134,12 +140,13 @@ class Graph:
         print("Updating Figure")
         node_radius = min(.1, (self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
 
-
+        print(len(self.nodes), len(self.edges))
         for node in self.nodes.values():
             node.circle.radius = node_radius
             ax.add_patch(node.circle)
             if labels:
                 node.show_label(ax)
+
         x_lim = self.min_max_x + np.array([-(node_radius+.1), node_radius+.1])
         y_lim = self.min_max_y + np.array([-(node_radius+.1), node_radius+.1])
         ax.set_xlim(x_lim)
@@ -149,23 +156,25 @@ class Graph:
         ax.axis(axis)
 
     def return_subplots(self, labels=True, axis=False, title=None):
-
         num_subgraphs = len(self.subgraphs)
-        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Number of columns based on square root of num_subgraphs
+        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Ensure at least 1 column
+        num_rows = (num_subgraphs + num_cols - 1) // num_cols  # Ensure at least 1 row
 
-        # Adjust num_rows to ensure that num_cols * num_rows is greater than or equal to num_subgraphs
-        num_rows = (num_subgraphs + num_cols - 1) // num_cols
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10, 8), sharex='col', sharey='row')
+        # Flatten axes array if multiple axes, else wrap in a list for consistent handling
+        axes_flat = axes.flatten() if num_subgraphs > 1 else [axes]
 
-        self.fig, self.axes = plt.subplots(num_rows, num_cols, figsize=(10, 8), sharex=True, sharey=True)
+        for ax in axes_flat[num_subgraphs:]:  # Hide unused subplots
+            ax.set_visible(False)
 
-        for (name, subgraph), ax_sub in zip(self.subgraphs.items(), self.axes.flatten()):
-            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax_sub)
-            ax_sub.set_aspect('equal')
-             # Draw bounding box around the subgraph
-            min_x, max_x = ax_sub.get_xlim()
-            min_y, max_y = ax_sub.get_ylim()
+        for (name, subgraph), ax in zip(self.subgraphs.items(), axes_flat):
+            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
+            ax.set_aspect('equal')
+            # Draw bounding box around the subgraph
+            min_x, max_x = ax.get_xlim()
+            min_y, max_y = ax.get_ylim()
             bbox = Rectangle((min_x, min_y), max_x - min_x, max_y - min_y, linewidth=2, edgecolor="green", facecolor='none')
-            ax_sub.add_patch(bbox)
+            ax.add_patch(bbox)
 
             for edge in self.edges.values():
                 node1_id, node2_id = edge.node1.id, edge.node2.id
@@ -173,15 +182,16 @@ class Graph:
                 subgraph2 = self.find_subgraph_containing_node(node2_id)
                 if subgraph1 is not None and subgraph2 is not None and subgraph1 != subgraph2:
                     # Draw connection between subgraphs
-                    ax1 = self.axes.flatten()[list(self.subgraphs.keys()).index(subgraph1)]
-                    ax2 = self.axes.flatten()[list(self.subgraphs.keys()).index(subgraph2)]
+                    ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
+                    ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
                     edge.update_line(ax1=ax1,ax2=ax2,color="red",coordsA='data',coordsB='data')
-                    ax_sub.add_patch(edge.line)
+                    ax.add_patch(edge.line)
                 else:
                     edge.update_line()
-                    ax=self.axes.flatten()[list(self.subgraphs.keys()).index(subgraph1)]
+                    ax=axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
                     ax.add_patch(edge.line)
-        #plt.tight_layout()
+
+        plt.tight_layout()
         plt.suptitle(title, y=1.02)
         plt.show()
 
@@ -221,6 +231,7 @@ class Graph:
         visited = set()
         self.dfs_order = []
         self.dfs_tree = {root: []}
+        self.dfs_non_tree_edges = {node_id:[] for node_id in self.nodes.keys()}
         def dfs_recursive(node_id):
             visited.add(node_id)
             self.dfs_order.append(node_id)
@@ -229,213 +240,195 @@ class Graph:
                     self.dfs_tree[node_id].append(neighbour.id)
                     self.dfs_tree[neighbour.id] = []
                     dfs_recursive(neighbour.id)
+                else:
+                    self.dfs_non_tree_edges[node_id].append(neighbour.id)
+
         dfs_recursive(root)
 
     def bfs(self, root):
         visited = set()
         self.bfs_order = []
         self.bfs_tree = {root: []}
+        self.bfs_non_tree_edges = {root:[]}
         queue = deque([root])
-
+        visited.add(root)
         while queue:
             node_id = queue.popleft()
-            if node_id in visited:
-                continue
-            visited.add(node_id)
-            self.bfs_order.append(node_id)
-
             for neighbour,_ in self.nodes[node_id].out_neighbours:
                 if neighbour.id not in visited:
-                    self.bfs_tree[neighbour.id] = []
+                    visited.add(neighbour.id)
+                    queue.append(neighbour.id)
+
+                    #
+                    for non_tree_neighbour,_ in self.nodes[node_id].out_neighbours + self.nodes[node_id].in_neighbours:
+                        if non_tree_neighbour != neighbour:
+                            self.bfs_non_tree_edges[node_id].append(non_tree_neighbour.id)
+
+                    if neighbour.id not in self.bfs_tree:
+                        self.bfs_tree[neighbour.id] = []
+                        #
+                        self.bfs_non_tree_edges[neighbour.id] = []
                     self.bfs_tree[node_id].append(neighbour.id)
-                    #self.bfs_tree[neighbour.id] = []
-                    queue.append(neighbour.id)
+                    self.bfs_order.append(neighbour.id)
 
-    def force_directed_graph(self, embedder_type="Eades", K=500, epsilon=1e-4, delta=.1, c=.9,c_rep=1,c_spring=2, subgraphs=False):
-        print("force directed graph computation")
-        l = c * 1  # ideal edge length
+    # STEP 3 FORCE DIRECTED GRAPHS
+    def repulsive_forces(self, k):  #k is C_rep
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
+        for u_id, u in self.nodes.items():
+            for v in self.nodes.values():
+                if u != v and not u.has_neighbour(v):
+                    delta = np.array(u.circle.center) - np.array(v.circle.center)
+                    distance = np.linalg.norm(delta)
+                    if distance > 0:
+                        repulsive_force = k / distance**2
+                        forces[u_id] += repulsive_force * (delta / distance) #delta is normalized
+        return forces
 
-        def repulsive_force(distance, diff):
-            if embedder_type == "Fruchterman & Reingold":
-                return (l**2 / distance) * diff
-            if embedder_type == "Eades":
-                return c_rep * diff / (distance**2)
+    def spring_forces(self, k, optimal_length): #k is C_spring
 
-        def attractive_force(distance, diff):
-            if embedder_type == "Fruchterman & Reingold":
-                return (distance**2 / l) * diff
-            if embedder_type == "Eades":
-                return c_spring * np.log(distance / l) * diff
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
 
+        for u_id, u in self.nodes.items():
+            for v in self.nodes.values():
+                if u.has_neighbour(v):
+                    delta = np.array(u.circle.center) - np.array(v.circle.center)
+                    distance = np.linalg.norm(delta)
+                    if distance > 0:
+                        spring_force_magnitude = k * np.log(distance / optimal_length)
+                        spring_force = spring_force_magnitude * (delta / distance)
+                        forces[u_id] += spring_force
+
+        return forces
+
+    def spring_embedder(self, k_rep=1, k_spring=2, optimal_length=1, iterations=100, threshold=1e-5, delta=.001, subgraphs=False):
         if subgraphs:
-            for subgraph in self.subgraphs.values():
-                    subgraph.force_directed_graph()
+            for sg in self.subgraphs:
+                sg.spring_embedder(k_rep=k_rep, k_spring=k_spring, optimal_length=optimal_length, iterations=iterations, threshold=threshold,delta=delta)
 
-        for _ in range(K):
-            displacement = {v: np.zeros(2) for v in self.nodes.keys()}
+        else:
+            t = 1
+            while t <= iterations:
+                rep_forces = self.repulsive_forces(k_rep)
+                spr_forces = self.spring_forces(k_spring, optimal_length)
 
-            # calculate repulsive forces
-            for key_u, u in self.nodes.items():
-                for v in self.nodes.values():
-                    diff = u.circle.center - v.circle.center
-                    distance = np.linalg.norm(diff)
-                    if distance > 0:
-                        disp = repulsive_force(distance, diff)
-                        displacement[key_u] += disp
+                net_force = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}  # Initialize net forces
 
-            # calculate attractive forces
-            for key_u, u in self.nodes.items():
-                for key_v, v in self.nodes.items():
-                    diff = u.circle.center - v.circle.center
-                    distance = np.linalg.norm(diff)
-                    if distance > 0:
-                        disp = attractive_force(distance, diff)
-                        displacement[key_u] -= disp
-                        displacement[key_v] += disp
+                for node_id, node in self.nodes.items():
+                    net_force[node_id] = rep_forces[node_id] + spr_forces[node_id]
 
-            # update positions
-            for key_v, v in self.nodes.items():
-                length = np.linalg.norm(displacement[key_v])
-                if length > 0:
-                    # displacement vector is normalized
-                    v.circle.center += delta * displacement[key_v] / length
-                    self.min_max_x = np.array([min(v.circle.center[0],self.min_max_x[0]),
-                                               max(v.circle.center[0],self.min_max_x[1])])
-                    self.min_max_y = np.array([min(v.circle.center[1],self.min_max_y[0]),
-                                               max(v.circle.center[1],self.min_max_y[1])])
+                for node_id, node in self.nodes.items():
+                    self.nodes[node_id].circle.center += delta * net_force[node_id]
 
-            max_displacement = max(np.linalg.norm(disp) for disp in displacement.values()) if displacement.values() else 0
+                    self.min_max_x = np.array([min(node.circle.center[0],self.min_max_x[0]),
+                                                max(node.circle.center[0],self.min_max_x[1])])
+                    self.min_max_y = np.array([min(node.circle.center[1],self.min_max_y[0]),
+                                                max(node.circle.center[1],self.min_max_y[1])])
 
-            if max_displacement < epsilon:
-                break
+                max_force = max(np.linalg.norm(force) for force in net_force.values())
+                if max_force < threshold:
+                    break
 
-    def remove_cycles(self):
-        order = []
-        self.feedback_set = set()
-        for node_id in sorted(self.nodes.keys(), key=lambda x: int(x)):
-            node = self.nodes[node_id]
-            order.append(node_id)
-            for neighbour in node.out_neighbours:
-                if neighbour.id in order:
-                    # inverse edge direction in node
-                    node.out_neighbours.remove(neighbour)
-                    node.in_neighbours.append(neighbour)
-                    # inverse edge direction in neighbour
-                    neighbour.in_neighbours.remove(node)
-                    neighbour.out_neighbours.append(node)
-                    # inverse edge
-                    self.edges[(node_id,neighbour.id)].invert()
-                    self.feedback_set.add(self.edges[(node_id,neighbour.id)])
+                t += 1
 
-    def heuristic_with_guarantees(self):
-        edges_to_reverse = set()
+    def repulsive_forces_1(self, ideal_edge_length):
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
+        for u_id,u in self.nodes.items():
+            for v in self.nodes.values():
+                if u != v:  # Exclude self-repulsion
+                    delta = np.array(u.circle.center) - np.array(v.circle.center)
+                    distance = np.linalg.norm(delta) + 1e-6  # Prevent division by zero
+                    repulsive_force = ideal_edge_length**2 / distance
+                    forces[u_id] += repulsive_force * (delta / distance)
+        return forces
 
-        while len(self.nodes) > 0:
-            sinks = [node for node in self.nodes.values() if len(node.in_neighbours) > 0 and len(node.out_neighbours) == 0]
-            for sink in sinks:
-                for in_n in sink.in_neighbours:
-                    edges_to_reverse.add((in_n, sink))
-                self.remove_node(sink)
+    def attractive_forces_1(self, ideal_edge_length, mass_bool=False):
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
+        if mass_bool:
+            masses = {node_id: 1 + node.degree() / 2 for node_id,node in self.nodes.items()}  # Calculate node mass**1
 
-            isolated_nodes = [isolate for isolate in self.nodes.values() if len(isolate.in_neighbours) + len(isolate.out_neighbours) == 0]
-            for isolate in isolated_nodes:
-                self.remove_node(isolate)
+        for u_id, v_id in self.edges.keys():  # Only iterate over edges
+            print(self.nodes)
+            delta = np.array(self.nodes[v_id].circle.center) - np.array(self.nodes[u_id].circle.center)
+            distance = np.linalg.norm(delta) + 1e-6  # Prevent division by zero
+            spring_force_magnitude = (distance**2 / ideal_edge_length) / masses[u_id] if mass_bool else distance**2 / ideal_edge_length
+            # Feedback: Instead of updating the forces array, store the force in a separate variable
+            force = spring_force_magnitude * (delta / distance)
+            forces[u_id] += force
+            forces[v_id] -= force # Apply equal and opposite force
+        return forces
 
-            sources = [node for node in self.nodes.values() if len(node.out_neighbours) > 0 and len(node.in_neighbours) == 0]
-            for source in sources:
-                for out_n in source.out_neighbours:
-                    edges_to_reverse.add((out_n, source))
-                self.remove_node(source)
+    def calculate_spring_forces(self, rep_forces, attr_forces):
+        spring_forces = {node_id: rep_forces[node_id] for node_id in self.nodes.keys()}
+        for u_id, v_id in self.edges.keys():
+            spring_forces[u_id] += attr_forces[u_id]
+            spring_forces[v_id] += attr_forces[v_id]
+        return spring_forces
 
-            # If graph is non-empty, select a node with max |N_outgoing| - |N_incoming|
-            if len(self.nodes) > 0:
-                node = max(self.nodes.values(), key=lambda node: len(node.in_neighbours) - len(node.out_neighbours))
-                for out_n in node.out_neighbours:
-                    edges_to_reverse.add((out_n, node))
-                self.remove_node(node)
+    def magnetic_forces(self, magnetic_constant):
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
+        field_direction = np.array([0, 1])  # use [1, 0] for a horizontal field
 
-        return edges_to_reverse
+        for u, v in self.edges.keys():
+            delta = np.array(self.nodes[v].circle.center) - np.array(self.nodes[u].circle.center)
+            edge_direction = delta / (np.linalg.norm(delta) + 1e-6)
+            cos_theta = np.dot(edge_direction, field_direction)
+            angle = np.arccos(np.clip(cos_theta, -1, 1))
+            magnetic_force_magnitude = magnetic_constant * (1 - cos_theta)
+            # Calculate perpendicular direction to the edge direction to apply force
+            perpendicular_dir = np.array([-edge_direction[1], edge_direction[0]])
+            magnetic_force = magnetic_force_magnitude * perpendicular_dir
 
-    def remove_node(self, node):
-        for neighbour in node.out_neighbours:
-            neighbour.in_neighbours.remove(node)
-        for neighbour in node.in_neighbours:
-            neighbour.out_neighbours.remove(node)
-        del self.nodes[node.id]
+            forces[u] += magnetic_force
+            forces[v] -= magnetic_force
+        return forces
 
-    def has_cycle(self):
-        visited = set()
-        recursion_stack = set()
-
-        def dfs(node_id):
-            if node_id in recursion_stack:
-                return True
-            if node_id in visited:
-                return False
-            visited.add(node_id)
-            recursion_stack.add(node_id)
-            for neighbour in self.nodes[node_id].out_neighbours:
-                if dfs(neighbour.id):
-                    return True
-            recursion_stack.remove(node_id)
-            return False
-
-        for node in self.nodes:
-            if dfs(node):
-                return True
-        return False
-
-    def topological_sort(self):
-        # Dictionary to store in-degrees of nodes
-        in_degrees = {node_id: 0 for node_id in self.nodes}
-
-        # Calculate in-degrees of nodes
+    def gravitational_forces(self, center_point, gravitational_constant):
+        forces = {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()}
         for node_id, node in self.nodes.items():
-            for neighbour in node.out_neighbours:
-                in_degrees[neighbour.id] += 1
+            delta = center_point - np.array(node.circle.center)
 
-        # Queue for nodes with no incoming edges
-        queue = deque([node_id for node_id, in_degree in in_degrees.items() if in_degree == 0])
+            distance = np.linalg.norm(delta)
+            grav_force = gravitational_constant * delta
+            forces[node_id] += grav_force / distance if distance > 0 else 0
+        return forces
 
-        # Topologically sorted nodes
-        sorted_nodes = []
+    def spring_embedder_f(self, ideal_length=.1, K=100, epsilon=1e-4, delta=.1, gravitational_constant=None, magnetic_constant=None):
+        if self.subgraphs:
 
-        # Perform topological sorting
-        while queue:
-            node_id = queue.popleft()
-            sorted_nodes.append(node_id)
+            for subgraph in self.subgraphs.values():
+                subgraph.spring_embedder_f()
 
-            # Reduce in-degree of neighbors
-            for neighbour in self.nodes[node_id].out_neighbours:
-                in_degrees[neighbour.id] -= 1
+        else:
+            center_point = np.array([0.5, 0.5])
+            t = 0
+            cooling_factor = 0.95
+            min_delta = 0.00001
 
-                # Add neighbor to queue if its in-degree becomes 0
-                if in_degrees[neighbour.id] == 0:
-                    queue.append(neighbour.id)
+            while t < K:
+                rep_forces = self.repulsive_forces_1(ideal_length)
+                attr_forces = self.attractive_forces_1(ideal_length)
+                grav_forces = self.gravitational_forces(center_point, gravitational_constant) if gravitational_constant else {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()} #Gravity
+                mag_forces = self.magnetic_forces(magnetic_constant) if magnetic_constant else {node_id: np.array([0.0, 0.0]) for node_id in self.nodes.keys()} #magnetic
 
-        return sorted_nodes
 
-    def assign_layers(self):
-        # Perform topological sort to get node order
-        node_order = self.topological_sort()
 
-        # Dictionary to store layer assignments
-        layer_assignments = {node_id: 0 for node_id in self.nodes}
+                for node_id, node in self.nodes.items():
+                    net_force = rep_forces[node_id] + attr_forces[node_id] + grav_forces[node_id] + mag_forces[node_id] #+gravity/magnetic
 
-        # Assign layers based on topological order
-        for node_id in node_order:
-            node = self.nodes[node_id]
-            if node.in_neighbours:
-                max_predecessor_layer = max(layer_assignments[predecessor.id] for predecessor in node.in_neighbours)
-            else:
-                max_predecessor_layer = 0
-            layer_assignments[node_id] = max_predecessor_layer + 1
+                    displacement = np.clip(delta * net_force, -delta, delta)
+                    node.circle.center += displacement
+                    self.min_max_x = np.array([min(node.circle.center[0],self.min_max_x[0]),
+                                                max(node.circle.center[0],self.min_max_x[1])])
+                    self.min_max_y = np.array([min(node.circle.center[1],self.min_max_y[0]),
+                                                max(node.circle.center[1],self.min_max_y[1])])
 
-        # Update layer attribute of nodes
-        for node_id, layer in layer_assignments.items():
-            self.nodes[node_id].layer = layer
+                delta = max(min_delta, cooling_factor * delta)
 
-        return layer_assignments
+                max_force = max(np.linalg.norm(node.circle.center) for node in self.nodes.values())
+                if max_force < epsilon:
+                    break
+
+                t += 1
 
     def distances_matrix(self):
         N = len(self.nodes)

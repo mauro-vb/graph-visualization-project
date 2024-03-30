@@ -3,12 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Node:
-    def __init__(self, _id, number, color='green'):
+    def __init__(self, _id, number=None, color='green'):
         self.id = _id
         self.number = number
         self.in_neighbours = []
         self.out_neighbours = []
-        self.circle = Circle(xy=np.zeros(2), radius = .1, color = color, alpha=.5)
+        self.circle = Circle(xy=np.zeros(2), radius = .1, color = color, alpha=.5, zorder=100)
 
     def add_out_neighbour(self, neighbour, weight=1):
         if neighbour not in self.out_neighbours:
@@ -18,6 +18,21 @@ class Node:
         if neighbour not in self.in_neighbours:
             self.in_neighbours.append((neighbour, weight))
 
+    def has_neighbour(self,neighbour):
+        if neighbour in [node for node,_ in self.out_neighbours]:
+            return True
+        if neighbour in [node for node,_ in self.in_neighbours]:
+            return True
+        else:
+            return False
+    def degree(self):
+        return len(self.out_neighbours) + len(self.in_neighbours)
+
+    def in_degree(self):
+        return len(self.in_neighbours)
+    def out_degree(self):
+        return len(self.out_neighbours)
+
     def show_label(self, ax):
         ax.text(*self.circle.center, str(self.id), size=6, ha='center', va='baseline', alpha=.5)
 
@@ -26,7 +41,6 @@ class TreeNode(Node):
         super().__init__(label)
         self.children = set()
         self.parent = None
-        self.non_tree_neighbours = []
         self.width = None
         self.level = None
         self.height = None
@@ -34,8 +48,10 @@ class TreeNode(Node):
 
     @classmethod
     def build_tree_from_dict(cls, tree_dict):
+        # Create a dictionary to store TreeNode instances by label
         node_instances = {}
 
+        # Recursively build the tree
         def build_tree_helper(label):
             if label not in node_instances:
                 node_instances[label] = TreeNode(label)
@@ -43,12 +59,13 @@ class TreeNode(Node):
             node = node_instances[label]
 
             if label in tree_dict:
-                for child, weight in tree_dict[label]:
-                    child_node = build_tree_helper(child.id)
-                    node.add_child(child_node, weight)
+                for child_label in tree_dict[label]:
+                    child_node = build_tree_helper(child_label)
+                    node.add_child(child_node)
 
             return node
 
+        # Start building the tree from the root node
         root_label = next(iter(tree_dict))
         root_node = build_tree_helper(root_label)
 
@@ -93,12 +110,14 @@ class TreeNode(Node):
                 child.compute_coordinates(child_x, 0 - child.get_level() * x_y_ratio, x_y_ratio)
                 starting_x += child.width
 
-    def draw_tree(self, labels=True, non_tree_edges=False):
+    def draw_tree(self, labels=True, non_tree_edges=None):
         self.compute_drawing_params()
         self.compute_coordinates(0, 0, self.x_y_ratio)
         fig = plt.figure()
         ax = fig.gca()
         plt.axis(False)
+
+        drawn_edges=[]
 
         def draw_patch(node, ax):
             ax.add_patch(Circle(xy=node.coordinates, radius=0.5, color='green', alpha=0.3))
@@ -107,11 +126,14 @@ class TreeNode(Node):
             if node.children:
                 for child, _ in node.children:
                     ax.add_patch(ConnectionPatch(node.coordinates, child.coordinates, 'data', lw=0.5, color='grey'))
+                    drawn_edges.append((node.id, child.id))
                     draw_patch(child, ax)
             if non_tree_edges:
-                for nt_neighbour_label in node.non_tree_neighbours:
+                for nt_neighbour_label in non_tree_edges[node.id]:
                     nt_neighbour_node = self.find_tree_node(nt_neighbour_label)
-                    ax.add_patch(ConnectionPatch(node.coordinates, nt_neighbour_node.coordinates, 'data', lw=0.1, color='blue', linestyle=":"))
+                    if nt_neighbour_node and (node.id, nt_neighbour_label) not in drawn_edges and (nt_neighbour_label,node.id) not in drawn_edges:
+                        ax.add_patch(ConnectionPatch(node.coordinates, nt_neighbour_node.coordinates, 'data', lw=0.1, color='blue', linestyle=":"))
+
 
         draw_patch(self, ax)
 

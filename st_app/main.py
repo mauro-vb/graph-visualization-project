@@ -2,9 +2,11 @@ import streamlit as st
 from classes_clean.graph import Graph
 from classes_clean.node import TreeNode
 import matplotlib.pyplot as plt
-from app.classes import TreeNode
+from step4 import *
+
 
 def main():
+    st.set_option('deprecation.showPyplotGlobalUse', False)
     st.title("Data Visualization")
     with st.expander("Note: Complexity and Graph Size"):
         st.write("Each step has an associated computational complexity and operates on a graph of size N.")
@@ -36,31 +38,39 @@ def step_1():
 
     selected_layout = st.radio("Layout type", ["Random", "Circular"])
     if st.button("Visualize Graph"):
-        if selected_layout == "Random":
-            g.random_layout()
-        if selected_layout == "Circular":
-            g.circular_layout()
-        g.return_fig()
+        with st.spinner("Loading..."):
+            if selected_layout == "Random":
+                g.random_layout()
+            if selected_layout == "Circular":
+                g.circular_layout()
+            g.return_fig()
 
-        st.pyplot(g.fig)
+            st.pyplot(g.fig)
 
 def step_2():
     st.title("Step 2: Extract and visualize trees")
-    example_graphs = {"Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {"No name graph (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph])
     selected_graph_traversal = st.radio("Graph traversal type", ["DFS", "BFS"])
-    if st.button("Visualize Graph"):
-        if selected_graph_traversal == "DFS":
-            g.dfs('1')
-            tree_dict = g.dfs_tree
-        if selected_graph_traversal == "BFS":
-            g.bfs('1')
-            tree_dict = g.bfs_tree
+    toggle = st.toggle("Non-tree Edges")
 
-        t = TreeNode(next(iter(tree_dict))).build_tree_from_dict(tree_dict)
-        st.pyplot(t.draw_tree())
+
+    if st.button("Visualize Graph"):
+        with st.spinner("Loading..."):
+            if selected_graph_traversal == "DFS":
+                g.dfs('1')
+                tree_dict = g.dfs_tree
+                non_tree_edges = g.dfs_non_tree_edges
+            if selected_graph_traversal == "BFS":
+                g.bfs('1')
+                tree_dict = g.bfs_tree
+                non_tree_edges = g.bfs_non_tree_edges
+
+            t = TreeNode(next(iter(tree_dict))).build_tree_from_dict(tree_dict)
+            plots = {False : t.draw_tree(), True: t.draw_tree(non_tree_edges=non_tree_edges)}
+            st.pyplot(plots[toggle])
 
 def step_3():
     st.title("Step 3: Compute a force directed layout")
@@ -69,22 +79,60 @@ def step_3():
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph])
-    if st.button("Visualize Graph"):
-        g.random_layout()
-        g.force_directed_graph()
-        g.return_fig()
+    embeder_names = ["Eades", "Fruchterman & Reingold"]
+    chosen_embeder = st.radio("Embedder type", embeder_names)
+    if chosen_embeder == "Fruchterman & Reingold":
+        g_const = st.slider("Gravitational force",min_value=.0,max_value=.2)
+        mag_constant = st.slider("Magentic Force",min_value=.0,max_value=.4)
+    spring_embeders = {name:method for name , method in zip(embeder_names,[g.spring_embedder, g.spring_embedder_f])}
 
-        st.pyplot(g.fig)
+    if st.button("Visualize Graph"):
+        with st.spinner("Loading..."):
+            g.random_layout()
+            if chosen_embeder == "Fruchterman & Reingold":
+                spring_embeders[chosen_embeder](magnetic_constant=mag_constant,gravitational_constant=g_const)
+            else:
+                spring_embeders[chosen_embeder]()
+
+            g.return_fig()
+
+            st.pyplot(g.fig)
 
 def step_4():
-    pass
+    import networkx as nx
+    st.title("Step 4: Compute a layered layout")
+
+    example_graphs = {"No name graph (N=24)":"noname.dot"}
+    selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
+
+    g = nx.nx_agraph.read_dot("Datasets/" + example_graphs[selected_graph])
+    steps = ['Resolve Cycles', 'Layer Assignment', 'Crossing Minimization']
+    chosen_step = st.radio("Sugiyama Framework Steps", steps)
+
+
+    if st.button("Visualize Graph"):
+        with st.spinner("Loading..."):
+            if chosen_step == "Resolve Cycles":
+                plot = plot_trivial_heuristic(g)
+                st.pyplot(plot)
+            if chosen_step == "Layer Assignment":
+                plot = draw_layer_assignment(g)
+                st.pyplot(plot)
+            if chosen_step == "Crossing Minimization":
+                plot = draw_crossing_reduction(g)
+                st.pyplot(plot)
+
+
+
+
+
 
 def step_5():
     st.title("Step 5: Multilayer/clustered graphs and edge bundling")
 
     example_graphs = {"Devonshire Debate (N=335)":"devonshiredebate_withclusters.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
-    subgraphs = ["Youngest Devonian Strata", "Gap in the Sequence of Devonshi""Dating of the Main Culm","Dating of the Culm Limestone","Rocks, Fossils and Time","Fossils in Pre-Old Red Sandston",
+    subgraphs = ["Youngest Devonian Strata", "Gap in the Sequence of Devonshi","Dating of the Culm Limestone","Rocks, Fossils and Time","Fossils in Pre-Old Red Sandston",
                         "Other Regions Than Devonshire","Evidence","Universalities","Dating of the Non-Culm"]
     with st.expander("Select Subgraphs"):
         selected_subgraphs = {sg:st.checkbox(sg) for sg in subgraphs}
@@ -93,7 +141,7 @@ def step_5():
     if st.button("Visualize Graph"):
         g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs)
         g.random_layout(subgraphs=True)
-        g.force_directed_graph(subgraphs=True)
+        g.spring_embedder_f()
         g.return_subplots()
 
         st.pyplot(g.fig)
