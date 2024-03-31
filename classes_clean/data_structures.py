@@ -315,6 +315,8 @@ class Graph:
             ax.add_patch(node.circle)
             if labels:
                 node.show_label(ax)
+                
+        
         x_lim = self.min_max_x + np.array([-(node_radius+.1), node_radius+.1])
         y_lim = self.min_max_y + np.array([-(node_radius+.1), node_radius+.1])
         ax.set_xlim(x_lim)

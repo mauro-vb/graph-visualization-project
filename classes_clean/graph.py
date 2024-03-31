@@ -1,7 +1,7 @@
 import pygraphviz
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, ConnectionPatch, Circle
 from collections import deque
 import math
 import networkx as nx
@@ -37,7 +37,7 @@ class Graph:
         self.bfs_non_tree_edges = None
         self.dfs_non_tree_edges = None
 
-
+    # General Purposes
     def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight"):
         G = pygraphviz.AGraph()
         G.read(dot_file_path)
@@ -55,6 +55,7 @@ class Graph:
                             node_id = graphviz_node.get_name()
                             node = Node(_id=node_id,number=i)
                             self.subgraphs[subgraph_name].nodes[node_id] = node
+
                 else:
                     subgraph_name = subgraph.name
                     self.subgraphs[subgraph_name] = Graph(a_subgraph=True)
@@ -73,7 +74,10 @@ class Graph:
                 if selected_subgraphs:
                     if subgraph_name_1 in selected_subgraphs and subgraph_name_2 in selected_subgraphs:
                         edge = Edge(self.subgraphs[subgraph_name_1].nodes[node1_id], self.subgraphs[subgraph_name_2].nodes[node2_id],directed=self.directed)
-                        self.edges[(node1_id, node2_id)] = edge
+                        if subgraph_name_1 == subgraph_name_2:
+                            self.subgraphs[subgraph_name_1].edges[(node1_id, node2_id)] = edge
+                        else:
+                            self.edges[(node1_id, node2_id)] = edge
                 else:
                     edge = Edge(self.subgraphs[subgraph_name_1].nodes[node1_id], self.subgraphs[subgraph_name_2].nodes[node2_id], directed=self.directed)
                     self.edges[(node1_id, node2_id)] = edge
@@ -99,11 +103,6 @@ class Graph:
                     edge = Edge(self.nodes[node1_id], self.nodes[node2_id], weight=weight)
                 self.edges[(node1_id, node2_id)] = edge
 
-    def find_subgraph_for_node(self, node_id):
-        for subgraph_name, subgraph in self.subgraphs.items():
-            if node_id in subgraph.nodes:
-                return subgraph_name
-
     def add_node(self, node_id):
         self.nodes[node_id] = Node(node_id)
 
@@ -120,7 +119,6 @@ class Graph:
                 self.ax.add_patch(edge.line)
 
             for node in self.nodes.values():
-                #print(node.circle.center)
                 node.circle.radius = node_radius
                 self.ax.add_patch(node.circle)
                 if labels:
@@ -136,73 +134,8 @@ class Graph:
 
             return self.fig
 
-    def update_ax(self, labels=True, axis=False, title=None, ax = None):
-        print("Updating Figure")
-        node_radius = min(.1, (self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
-
-        print(len(self.nodes), len(self.edges))
-        for node in self.nodes.values():
-            node.circle.radius = node_radius
-            ax.add_patch(node.circle)
-            if labels:
-                node.show_label(ax)
-
-        x_lim = self.min_max_x + np.array([-(node_radius+.1), node_radius+.1])
-        y_lim = self.min_max_y + np.array([-(node_radius+.1), node_radius+.1])
-        ax.set_xlim(x_lim)
-        ax.set_ylim(y_lim)
-        ax.set_title(title)
-
-        ax.axis(axis)
-
-    def return_subplots(self, labels=True, axis=False, title=None):
-        num_subgraphs = len(self.subgraphs)
-        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Ensure at least 1 column
-        num_rows = (num_subgraphs + num_cols - 1) // num_cols  # Ensure at least 1 row
-
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10, 8), sharex='col', sharey='row')
-        # Flatten axes array if multiple axes, else wrap in a list for consistent handling
-        axes_flat = axes.flatten() if num_subgraphs > 1 else [axes]
-
-        for ax in axes_flat[num_subgraphs:]:  # Hide unused subplots
-            ax.set_visible(False)
-
-        for (name, subgraph), ax in zip(self.subgraphs.items(), axes_flat):
-            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
-            ax.set_aspect('equal')
-            # Draw bounding box around the subgraph
-            min_x, max_x = ax.get_xlim()
-            min_y, max_y = ax.get_ylim()
-            bbox = Rectangle((min_x, min_y), max_x - min_x, max_y - min_y, linewidth=2, edgecolor="green", facecolor='none')
-            ax.add_patch(bbox)
-
-            for edge in self.edges.values():
-                node1_id, node2_id = edge.node1.id, edge.node2.id
-                subgraph1 = self.find_subgraph_containing_node(node1_id)
-                subgraph2 = self.find_subgraph_containing_node(node2_id)
-                if subgraph1 is not None and subgraph2 is not None and subgraph1 != subgraph2:
-                    # Draw connection between subgraphs
-                    ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
-                    ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
-                    edge.update_line(ax1=ax1,ax2=ax2,color="red",coordsA='data',coordsB='data')
-                    ax.add_patch(edge.line)
-                else:
-                    edge.update_line()
-                    ax=axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
-                    ax.add_patch(edge.line)
-
-        plt.tight_layout()
-        plt.suptitle(title, y=1.02)
-        plt.show()
-
-    def find_subgraph_containing_node(self, node_id):
-        for name, subgraph in self.subgraphs.items():
-            if node_id in subgraph.nodes:
-                return name
-        return None
-
+    ## STEP 1
     def circular_layout(self, center=(.5,.5), radius=.5, subgraphs=False):
-        print("CIRCULAR LAYOUT")
         if subgraphs:
             for subgraph in self.subgraphs.values():
                 subgraph.circular_layout()
@@ -218,7 +151,6 @@ class Graph:
             i += 1
 
     def random_layout(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0), subgraphs=False):
-        print("RANDOM LAYOUT")
         if subgraphs:
             for subgraph in self.subgraphs.values():
                 subgraph.random_layout()
@@ -227,6 +159,7 @@ class Graph:
             y = np.random.uniform(y_range[0], y_range[1])
             node.circle.center = np.array([x,y])
 
+    ## STEP 2 Graph Traversals
     def dfs(self, root):
         visited = set()
         self.dfs_order = []
@@ -347,7 +280,6 @@ class Graph:
             masses = {node_id: 1 + node.degree() / 2 for node_id,node in self.nodes.items()}  # Calculate node mass**1
 
         for u_id, v_id in self.edges.keys():  # Only iterate over edges
-            print(self.nodes)
             delta = np.array(self.nodes[v_id].circle.center) - np.array(self.nodes[u_id].circle.center)
             distance = np.linalg.norm(delta) + 1e-6  # Prevent division by zero
             spring_force_magnitude = (distance**2 / ideal_edge_length) / masses[u_id] if mass_bool else distance**2 / ideal_edge_length
@@ -430,6 +362,161 @@ class Graph:
 
                 t += 1
 
+    ## STEP 5 Subplots
+    def update_ax(self, labels=True, axis=False, title=None, ax = None):
+        print("Updating Figure")
+        node_radius = min(.1, (self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
+
+        for edge in self.edges.values():
+                edge.update_line()
+                ax.add_patch(edge.line)
+
+        for node in self.nodes.values():
+            node.circle.radius = node_radius
+            ax.add_patch(node.circle)
+            if labels:
+                node.show_label(ax)
+
+        x_lim = self.min_max_x + np.array([-(node_radius+.1), node_radius+.1])
+        y_lim = self.min_max_y + np.array([-(node_radius+.1), node_radius+.1])
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
+        ax.set_title(title)
+
+        ax.axis(axis)
+
+    def return_subplots(self, labels=True, axis=False, title=None):
+        num_subgraphs = len(self.subgraphs)
+        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Ensure at least 1 column
+        num_rows = (num_subgraphs + num_cols - 1) // num_cols  # Ensure at least 1 row
+
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10, 8), sharex='col', sharey='row')
+        # Flatten axes array if multiple axes, else wrap in a list for consistent handling
+        axes_flat = axes.flatten() if num_subgraphs > 1 else [axes]
+
+        for ax in axes_flat[num_subgraphs:]:  # Hide unused subplots
+            ax.set_visible(False)
+
+        for (name, subgraph), ax in zip(self.subgraphs.items(), axes_flat):
+            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
+            ax.set_aspect('equal')
+            # Draw bounding box around the subgraph
+            min_x, max_x = ax.get_xlim()
+            min_y, max_y = ax.get_ylim()
+            bbox = Rectangle((min_x, min_y), max_x - min_x, max_y - min_y, linewidth=2, edgecolor="green", facecolor='none')
+            ax.add_patch(bbox)
+
+            # for edge in self.edges.values():
+            #     node1_id, node2_id = edge.node1.id, edge.node2.id
+            #     subgraph1 = self.find_subgraph_containing_node(node1_id)
+            #     subgraph2 = self.find_subgraph_containing_node(node2_id)
+            #     if subgraph1 is not None and subgraph2 is not None and subgraph1 != subgraph2:
+            #         # Draw connection between subgraphs
+            #         ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
+            #         ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
+            #         edge.update_line(ax1=ax1,ax2=ax2,color="red",coordsA='data',coordsB='data')
+            #         ax.add_patch(edge.line)
+            #     else:
+            #         edge.update_line()
+            #         ax=axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
+            #         ax.add_patch(edge.line)
+
+        plt.tight_layout()
+        plt.suptitle(title, y=1.02)
+        plt.show()
+
+#######
+    def update_ax(self, labels=True, axis=False, title=None, ax=None):
+        """
+        Updates a given subplot axis with the graph's nodes and edges.
+
+        Args:
+            labels (bool): Whether to display labels on the nodes.
+            axis (bool): Whether to display the axis.
+            title (str): Title for the subplot.
+            ax (matplotlib.axes.Axes): The subplot axis to update.
+        """
+        print("Updating Figure")
+        # Dynamically adjust node radius based on the subplot size and number of nodes
+        node_radius = min(.05, (self.min_max_x[1] - self.min_max_x[0]) / np.sqrt(len(self.nodes)) * 0.2)
+
+        # Ensure nodes are placed within the subplot area
+        min_x, max_x, min_y, max_y = np.inf, -np.inf, np.inf, -np.inf
+        for edge in self.edges.values():
+                edge.update_line()
+                ax.add_patch(edge.line)
+
+        for node in self.nodes.values():
+            node.circle.radius = node_radius
+            ax.add_patch(node.circle)
+            min_x, min_y = min(min_x, node.circle.center[0]), min(min_y, node.circle.center[1])
+            max_x, max_y = max(max_x, node.circle.center[0]), max(max_y, node.circle.center[1])
+            if labels:
+                node.show_label(ax)
+
+        # Add a buffer around the bounding box to ensure it fits within the subplot
+        buffer = node_radius * 2
+        ax.set_xlim(min_x - buffer, max_x + buffer)
+        ax.set_ylim(min_y - buffer, max_y + buffer)
+        ax.set_title(title)
+        plt.axis(axis)
+
+    def return_subplots(self, labels=True, axis=True, title=None, figsize=(15, 15)):
+        num_subgraphs = len(self.subgraphs)
+        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Columns based on square root of number of subgraphs
+        num_rows = max((num_subgraphs + num_cols - 1) // num_cols, 1)  # Ensure at least 1 row
+
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize, constrained_layout=True)
+        if num_subgraphs > 1:
+            axes_flat = axes.flatten()
+        else:
+            axes_flat = [axes]  # Ensure axes_flat is always iterable
+
+        for ax in axes_flat[num_subgraphs:]:  # Hide unused subplots
+            ax.set_visible(False)
+
+
+        for i, (name, subgraph) in enumerate(self.subgraphs.items()):
+            ax = axes_flat[i]
+            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
+            ax.set_aspect('equal', adjustable='box')
+
+
+        for edge in self.edges.values():
+            node1_id, node2_id = edge.node1.id, edge.node2.id
+            subgraph1 = self.find_subgraph_containing_node(node1_id)
+            subgraph2 = self.find_subgraph_containing_node(node2_id)
+
+            # Determine the subplot axes for each node
+            ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
+            ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
+
+            pos1 = self.subgraphs[subgraph1].nodes[node1_id].circle.center
+            pos2 = self.subgraphs[subgraph2].nodes[node2_id].circle.center
+
+
+            connection = ConnectionPatch(xyA=pos1, xyB=pos2, coordsA='data', coordsB='data',
+                                        axesA=ax1, axesB=ax2, arrowstyle='->', color='red')
+
+            fig.add_artist(connection)
+
+
+        plt.suptitle(title)
+        plt.show()
+
+
+    def find_subgraph_containing_node(self, node_id):
+        for name, subgraph in self.subgraphs.items():
+            if node_id in subgraph.nodes:
+                return name
+        return None
+
+    def find_subgraph_for_node(self, node_id):
+        for subgraph_name, subgraph in self.subgraphs.items():
+            if node_id in subgraph.nodes:
+                return subgraph_name
+
+    # STEP 6
     def distances_matrix(self):
         N = len(self.nodes)
         D = np.ones((N,N)) * 10000

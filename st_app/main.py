@@ -49,7 +49,7 @@ def step_1():
 
 def step_2():
     st.title("Step 2: Extract and visualize trees")
-    example_graphs = {"No name graph (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {"Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph])
@@ -82,8 +82,8 @@ def step_3():
     embeder_names = ["Eades", "Fruchterman & Reingold"]
     chosen_embeder = st.radio("Embedder type", embeder_names)
     if chosen_embeder == "Fruchterman & Reingold":
-        g_const = st.slider("Gravitational force",min_value=.0,max_value=.2)
-        mag_constant = st.slider("Magentic Force",min_value=.0,max_value=.4)
+        g_const = st.slider("Gravitational force",min_value=.0,max_value=.1,value=.01)
+        mag_constant = st.slider("Magentic Force",min_value=.0,max_value=.4, value=.2)
     spring_embeders = {name:method for name , method in zip(embeder_names,[g.spring_embedder, g.spring_embedder_f])}
 
     if st.button("Visualize Graph"):
