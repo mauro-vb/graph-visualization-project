@@ -6,8 +6,10 @@ from collections import deque
 import math
 import networkx as nx
 
+from st_app.edge_bundling import edge_bundling
 from classes_clean.node import Node
 from classes_clean.edge import Edge
+
 
 class Graph:
     def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None,weight_name="weight"):
@@ -425,26 +427,29 @@ class Graph:
         plt.suptitle(title, y=1.02)
         plt.show()
 
-#######
-    def update_ax(self, labels=True, axis=False, title=None, ax=None):
-        """
-        Updates a given subplot axis with the graph's nodes and edges.
+    def find_subgraph_containing_node(self, node_id):
+        for name, subgraph in self.subgraphs.items():
+            if node_id in subgraph.nodes:
+                return name
+        return None
 
-        Args:
-            labels (bool): Whether to display labels on the nodes.
-            axis (bool): Whether to display the axis.
-            title (str): Title for the subplot.
-            ax (matplotlib.axes.Axes): The subplot axis to update.
-        """
+    def find_subgraph_for_node(self, node_id):
+        for subgraph_name, subgraph in self.subgraphs.items():
+            if node_id in subgraph.nodes:
+                return subgraph_name
+
+#######
+    def update_ax(self, labels=True, axis=False, title=None, ax=None,):
         print("Updating Figure")
         # Dynamically adjust node radius based on the subplot size and number of nodes
         node_radius = min(.05, (self.min_max_x[1] - self.min_max_x[0]) / np.sqrt(len(self.nodes)) * 0.2)
 
         # Ensure nodes are placed within the subplot area
         min_x, max_x, min_y, max_y = np.inf, -np.inf, np.inf, -np.inf
+
         for edge in self.edges.values():
-                edge.update_line()
-                ax.add_patch(edge.line)
+            edge.update_line()
+            ax.add_patch(edge.line)
 
         for node in self.nodes.values():
             node.circle.radius = node_radius
@@ -461,12 +466,14 @@ class Graph:
         ax.set_title(title)
         plt.axis(axis)
 
-    def return_subplots(self, labels=True, axis=True, title=None, figsize=(15, 15)):
+
+
+    def return_subplots(self, labels=True, axis=True, title=None, figsize=(15, 15),bundled=False):
         num_subgraphs = len(self.subgraphs)
         num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Columns based on square root of number of subgraphs
         num_rows = max((num_subgraphs + num_cols - 1) // num_cols, 1)  # Ensure at least 1 row
 
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize, constrained_layout=True)
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize, constrained_layout=False)
         if num_subgraphs > 1:
             axes_flat = axes.flatten()
         else:
@@ -481,6 +488,7 @@ class Graph:
             subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
             ax.set_aspect('equal', adjustable='box')
 
+        fig.canvas.draw()
 
         for edge in self.edges.values():
             node1_id, node2_id = edge.node1.id, edge.node2.id
@@ -491,30 +499,30 @@ class Graph:
             ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
             ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
 
-            pos1 = self.subgraphs[subgraph1].nodes[node1_id].circle.center
-            pos2 = self.subgraphs[subgraph2].nodes[node2_id].circle.center
+            fig_coor = edge.get_fig_coordinates(ax1=ax1,ax2=ax2)
 
+            if not bundled:
+                fig.add_artist(ConnectionPatch(fig_coor[0], fig_coor[1], coordsA='figure fraction', coordsB='figure fraction', lw=0.2, color="blue"))
 
-            connection = ConnectionPatch(xyA=pos1, xyB=pos2, coordsA='data', coordsB='data',
-                                        axesA=ax1, axesB=ax2, arrowstyle='->', color='red')
+        if bundled:
+            from st_app.edge_bundling import edge_bundling
+            bundled_edges = edge_bundling(self,C = 4, I = 10 ,s = 0.04,n0 = 2, kP = 0.1 )
+            for edge, control_points in bundled_edges.items():
 
-            fig.add_artist(connection)
+                for i in range(len(control_points) - 1):
+                    start_point = control_points[i]
+                    end_point = control_points[i + 1]
+
+                    # Create a connection patch between the start and end points
+                    conn_patch = ConnectionPatch(start_point, end_point, "figure fraction", "figure fraction",
+                                                arrowstyle="-", shrinkA=0, shrinkB=0,
+                                                mutation_scale=10, fc="w",lw=0.2, color="blue")
+                    fig.add_artist(conn_patch)
 
 
         plt.suptitle(title)
-        plt.show()
+        return fig
 
-
-    def find_subgraph_containing_node(self, node_id):
-        for name, subgraph in self.subgraphs.items():
-            if node_id in subgraph.nodes:
-                return name
-        return None
-
-    def find_subgraph_for_node(self, node_id):
-        for subgraph_name, subgraph in self.subgraphs.items():
-            if node_id in subgraph.nodes:
-                return subgraph_name
 
     # STEP 6
     def distances_matrix(self):

@@ -2,7 +2,7 @@ import streamlit as st
 from classes_clean.graph import Graph
 from classes_clean.node import TreeNode
 import matplotlib.pyplot as plt
-from step4 import *
+from st_app.helper_functions.step4 import *
 
 
 def main():
@@ -137,14 +137,15 @@ def step_5():
     with st.expander("Select Subgraphs"):
         selected_subgraphs = {sg:st.checkbox(sg) for sg in subgraphs}
     s_subgraphs = [sg for sg,b in selected_subgraphs.items() if b]
-
+    edge_bundling = st.toggle("Bundle InterGraph Edges")
     if st.button("Visualize Graph"):
-        g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs)
-        g.random_layout(subgraphs=True)
-        g.spring_embedder_f()
-        g.return_subplots()
+        with st.spinner("Loading..."):
+            g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs)
+            g.random_layout(subgraphs=True)
+            g.spring_embedder_f()
+            g.return_subplots(bundled=edge_bundling)
 
-        st.pyplot(g.fig)
+            st.pyplot(g.fig)
 
 def step_6():
     from sklearn.manifold import MDS
