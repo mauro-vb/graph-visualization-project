@@ -1,37 +1,56 @@
-# Step 1: Read and Draw a Graph
+# Graph Visualization System
 
-In this step, we aim to read a graph from a given file and visualize it using Python. We use the NetworkX library to read the graph and matplotlib to visualize it.
+This repository contains a comprehensive system designed for the visualization of relational and high-dimensional data. The project is structured into seven distinct steps, each focusing on different aspects of graph visualization. The goal is to create intuitive and informative visual representations that can facilitate the understanding of complex network structures.
 
-## Reading the Graph
+## Project Structure
 
-We start by reading the graph from a `.dot` file using the `read_dot` function from NetworkX. The graph is stored in the variable `G`. We then extract the edges and nodes from the graph and store them in `edge_list` and `node_list` respectively. Each edge is a tuple of two integers representing the nodes that the edge connects, and each node is an integer.
+The project is divided into the following steps:
 
-## Building the Adjacency List
+- **Step 1: Read and Draw a Graph**
+- **Step 2: Extract and Visualize Trees**
+- **Step 3: Compute a Force Directed Layout**
+- **Step 4: Compute a Layered Layout**
+- **Step 5: Multilayer/Clustered Graphs and Edge Bundling**
+- **Step 6: Projections for Graphs**
+- **Step 7: Quality Measurement of Graph Projections**
 
-Next, we build an adjacency list from the edge list. The adjacency list is a dictionary where the keys are the nodes and the values are lists of nodes that are connected to the key node by an edge. This gives us a convenient way to look up the neighbors of a node.
+Each step is implemented in a Jupyter Notebook (`.ipynb` format) which details the process, from reading graph data to applying sophisticated layout algorithms.
 
-## Assigning Positions to Nodes
+## Installation
 
-We then assign a random position to each node. The positions are stored in a dictionary `pos` where the keys are the nodes and the values are 2D numpy arrays representing the positions of the nodes.
+Clone the repository and navigate to the cloned directory:
 
-## Drawing the Graph
+git clone -b masoud https://git.science.uu.nl/dataviz/dataviz.git
+cd dataviz
 
-To draw the graph, we create a matplotlib figure and axes. We then iterate over the nodes and draw a circle at each node's position. We also add a text label at each node's position.
+Once inside the directory, you can switch to the `masoud` branch if needed:
 
-Next, we iterate over the edges and draw an arrow from the source node to the target node for each edge. The arrows are drawn using the `ConnectionPatch` class from matplotlib.
+git checkout masoud
 
-Finally, we set the limits of the axes and turn off the axis lines and labels with `plt.axis('off')`. We then display the figure with `plt.show()`.
+Open the `.ipynb` file for each step to view the implementation.
 
-## Computational Complexity
+## Usage
 
-The computational complexity of the layout algorithm is O(n), where n is the number of nodes. This is because we assign a position to each node independently of the other nodes.
+Each notebook is self-contained and includes both the implementation of the visualization step and a detailed explanation of the methods used. You can run each cell sequentially to see the results of the visualizations.
 
-## Pros and Cons of the Layout
+## Step 1: Read and Draw a Graph
 
-The main advantage of this layout is that we have complete control over the positioning of the nodes. However, the layout is not optimized and can result in issues like node overlap or too many edge crossings.
+In this step, we read graph data from a file and generate a node-link diagram visualization. We use NetworkX to handle the graph structure and Matplotlib for visualization.
 
-## Bonus: Circular Layout
+### Features
+- Load graph from `.dot` file
+- Build data structures for graph representation
+- Assign positions to nodes using user-defined functions
+- Draw the graph with customized layouts
+- Computational complexity analysis of the layout algorithm
+- Pros and cons discussion of the chosen layout
 
-As a bonus, we implemented a circular layout. In this layout, the nodes are positioned in a circle. The position of each node is determined by its index and the total number of nodes. We then redraw the graph with the new positions.
+## Step 2 to Step 7
 
-The circular layout algorithm also has a computational complexity of O(n). The resulting layout has less overlap and fewer edge crossings compared to the random layout.
+The following steps build upon the initial graph drawing, introducing more advanced visualization techniques such as tree extraction, force-directed layouts, layered layouts for DAGs, multilayer and clustered graph visualization, graph projections, and quality measurements for these projections.
+
+Each step is documented within its respective notebook with code, commentary, and visualization outputs.
+
+## Contributing
+
+Contributions to improve the visualization system are welcome. Please fork the repository, make your changes, and submit a pull request with a clear description of your improvements.
