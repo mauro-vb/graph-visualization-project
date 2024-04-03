@@ -8,17 +8,17 @@ from st_app.helper_functions.step4 import *
 def main():
     st.set_option('deprecation.showPyplotGlobalUse', False)
     st.title("Data Visualization")
-    with st.expander("Note: Complexity and Graph Size"):
-        st.write("Each step has an associated computational complexity and operates on a graph of size N.")
-        st.write("Complexity of each step:")
-        st.write("- Step 1: O(N) for reading and drawing the graph.")
-        st.write("- Step 2: O(N) for extracting and visualizing trees.")
-        st.write("- Step 3: O(N^2) for computing a force-directed layout.")
-        st.write("- Step 4: O(N^2) for some hypothetical operation.")
-        st.write("- Step 5: O(N) for visualizing multilayer/clustered graphs and performing edge bundling.")
-        st.write("- Step 6: O(N^2) for performing projections for graphs.")
-        st.write("Note: N represents the size of the graph.")
-    st.text("Main page. We can add some information here, maybe the link to our paper.")
+    # with st.expander("Note: Complexity and Graph Size"):
+    #     st.write("Each step has an associated computational complexity and operates on a graph of size N.")
+    #     st.write("Complexity of each step:")
+    #     st.write("- Step 1: O(N) for reading and drawing the graph.")
+    #     st.write("- Step 2: O(N) for extracting and visualizing trees.")
+    #     st.write("- Step 3: O(N^2) for computing a force-directed layout.")
+    #     st.write("- Step 4: O(N^2) for some hypothetical operation.")
+    #     st.write("- Step 5: O(N) for visualizing multilayer/clustered graphs and performing edge bundling.")
+    #     st.write("- Step 6: O(N^2) for performing projections for graphs.")
+    #     st.write("Note: N represents the size of the graph.")
+    # st.text("Main page. We can add some information here, maybe the link to our paper.")
     pages = {"Step 1": step_1,"Step 2": step_2, "Step 6":step_6, "Step 4": step_4,"Step 5": step_5, "Step 3":step_3}
     with st.sidebar:
         page_step = st.radio(
@@ -35,7 +35,7 @@ def step_1():
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph])
-
+    bundled= st.toggle("Edge Bundling")
     selected_layout = st.radio("Layout type", ["Random", "Circular"])
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
@@ -43,7 +43,7 @@ def step_1():
                 g.random_layout()
             if selected_layout == "Circular":
                 g.circular_layout()
-            g.return_fig()
+            g.return_fig(bundled=bundled)
 
             st.pyplot(g.fig)
 
@@ -75,7 +75,7 @@ def step_2():
 def step_3():
     st.title("Step 3: Compute a force directed layout")
 
-    example_graphs = {"No name graph (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {"Small directed Network (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph])
@@ -102,7 +102,7 @@ def step_4():
     import networkx as nx
     st.title("Step 4: Compute a layered layout")
 
-    example_graphs = {"No name graph (N=24)":"noname.dot"}
+    example_graphs = {"Small directed Network (N=24)":"noname.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = nx.nx_agraph.read_dot("Datasets/" + example_graphs[selected_graph])
@@ -137,12 +137,12 @@ def step_5():
     with st.expander("Select Subgraphs"):
         selected_subgraphs = {sg:st.checkbox(sg) for sg in subgraphs}
     s_subgraphs = [sg for sg,b in selected_subgraphs.items() if b]
-    edge_bundling = st.toggle("Bundle InterGraph Edges")
+    edge_bundling = st.toggle("Bundle Intra-layer Edges"), st.toggle("Bundle Subgraph Edges (Not recommended, may take several minutes to compute)")
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
             g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs)
             g.random_layout(subgraphs=True)
-            g.spring_embedder_f()
+            g.spring_embedder_f(ideal_length=.2, gravitational_constant=.1,magnetic_constant=.1)
             g.return_subplots(bundled=edge_bundling)
 
             st.pyplot(g.fig)

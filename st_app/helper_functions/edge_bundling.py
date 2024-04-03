@@ -95,6 +95,95 @@ def subdivide_edge(position, n_points):
     P1 = position[1]
     return [tuple(P0 + i/(n_points-1) * (P1 - P0)) for i in range(n_points)]
 
+def edge_bundling_precomputed(graph, n0, C, I, s, kP):
+    ##
+    compatibility_scores = {}
+    ##
+    B = {}
+    for edge_tuple, edge in graph.edges.items():
+        if edge.fig_coordinates:
+            B[edge_tuple] = subdivide_edge(edge.fig_coordinates, n0)
+
+            ##
+            for other_edge_tuple, edge in graph.edges.items():
+                if edge_tuple != other_edge_tuple:
+                    score = Ce(graph.edges[edge_tuple].fig_coordinates, graph.edges[other_edge_tuple].fig_coordinates)
+                    compatibility_scores[(edge_tuple, other_edge_tuple)] = score
+            ##
+        else:
+            B[edge_tuple] = subdivide_edge((edge.circle1.center,edge.circle2.center), n0)
+            ##
+            for other_edge_tuple, other_edge in graph.edges.items():
+                if edge_tuple != other_edge_tuple:
+                    score = Ce((edge.circle1.center,edge.circle2.center), (other_edge.circle1.center,other_edge.circle2.center))
+                    compatibility_scores[(edge_tuple, other_edge_tuple)] = score
+            ##
+
+
+
+
+    c = 0
+    max_cycles = C  # Maximum number of cycles to prevent infinite loop
+
+    while c < max_cycles:
+        print(f"Cycle {c+1}/{max_cycles}")
+        t = 0
+        while t < I:
+            print(f"  Iteration {t+1}/{I} in cycle {c+1}")
+            for edge_tuple, control_points in list(B.items()):
+                for i in range(1, len(control_points) - 1):
+
+                    P_i = np.array(control_points[i])
+                    P_i_minus_1 = np.array(control_points[i - 1])
+                    P_i_plus_1 = np.array(control_points[i + 1])
+
+                    F_spring = kP * ((np.linalg.norm(P_i_minus_1 - P_i) * (P_i_minus_1 - P_i)) + (np.linalg.norm(P_i - P_i_plus_1) * (P_i - P_i_minus_1)))
+                    F_total = F_spring
+
+                    for other_edge, other_control_points in B.items():
+
+                        if other_edge != edge_tuple:
+                            compatibility_score = compatibility_scores[(edge_tuple,other_edge)]
+                            if compatibility_score > 0.55:
+                                for j in range(1, len(other_control_points) - 1):
+                                    Q_j = np.array(other_control_points[j])
+                                    #compatibility_score = compatibility_scores[(edge_tuple,other_edge)]
+                                                        #
+                                    distance = np.linalg.norm(P_i - Q_j) * 100
+
+                                    if distance > 0.0 and compatibility_score > 0.55:
+                                        #compatibility_score = Ce((P_i_minus_1, P_i_plus_1), (other_control_points[j - 1], other_control_points[j + 1]))
+                                        F_electrostatic = compatibility_score / distance
+                                        F_total += F_electrostatic * (Q_j - P_i)
+
+                    B[edge_tuple][i] = tuple(np.array(control_points[i]) + s * F_total)
+
+            t += 1
+            if t >= I:
+                c += 1
+
+                # Increase the number of control points for next iteration by subdividing current control points
+                for edge_tuple in list(B.keys()):
+                    new_control_points = []
+                    for i in range(len(B[edge_tuple]) - 1):
+                        mid_point = tuple((np.array(B[edge_tuple][i]) + np.array(B[edge_tuple][i + 1])) / 2)
+                        new_control_points.extend([B[edge_tuple][i], mid_point])
+                    new_control_points.append(B[edge_tuple][-1])
+                    B[edge_tuple] = new_control_points
+
+                n0 = len(B[edge_tuple])  # Update n0 to reflect new number of control points
+                s /= 2  # Halving the step size for more refined control point adjustments
+                I  = int(I * (2/3))
+                print(f"  Updated control points, reduced iteration number to {I} and halved step size to {s}.")
+
+
+        if c >= max_cycles:
+            print("Reached maximum cycle limit.")
+            break
+
+    print("Edge bundling completed.")
+    return B
+
 def edge_bundling(graph, n0, C, I, s, kP):
     B = {}
     for edge_tuple, edge in graph.edges.items():
@@ -118,7 +207,7 @@ def edge_bundling(graph, n0, C, I, s, kP):
                     P_i_minus_1 = np.array(control_points[i - 1])
                     P_i_plus_1 = np.array(control_points[i + 1])
 
-                    F_spring = kP * (np.linalg.norm(P_i_minus_1 - P_i) + np.linalg.norm(P_i - P_i_plus_1))
+                    F_spring = kP * ((np.linalg.norm(P_i_minus_1 - P_i) * (P_i_minus_1 - P_i)) + (np.linalg.norm(P_i - P_i_plus_1) * (P_i - P_i_minus_1)))
                     F_total = F_spring
 
                     for other_edge, other_control_points in B.items():
