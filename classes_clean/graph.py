@@ -11,14 +11,14 @@ from classes_clean.edge import Edge
 
 
 class Graph:
-    def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None,weight_name="weight"):
+    def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None,weight_name="weight",colour="g"):
         # directed graph
         self.directed = directed
         # graph nodes and edges
         self.nodes, self.edges = {}, {}
         self.subgraphs = None
         if incoming_dot_file:
-            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name)
+            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name,colour=colour)
 
         # graph figure for visualisation
         self.fig = None if a_subgraph or subgraphs else plt.figure(figsize=(7,7))
@@ -37,8 +37,9 @@ class Graph:
         self.bfs_non_tree_edges = None
         self.dfs_non_tree_edges = None
 
+
     # General Purposes
-    def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight"):
+    def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight",colour="g"):
         G = pygraphviz.AGraph()
         G.read(dot_file_path)
 
@@ -53,7 +54,7 @@ class Graph:
                         # nodes
                         for i, graphviz_node in enumerate(subgraph.nodes()):
                             node_id = graphviz_node.get_name()
-                            node = Node(_id=node_id,number=i)
+                            node = Node(_id=node_id,number=i,colour=colour)
                             self.subgraphs[subgraph_name].nodes[node_id] = node
 
                 else:
@@ -62,7 +63,7 @@ class Graph:
                     # nodes
                     for graphviz_node in subgraph.nodes():
                         node_id = graphviz_node.get_name()
-                        node = Node(_id=node_id)
+                        node = Node(_id=node_id,colour=colour)
                         self.subgraphs[subgraph_name].nodes[node_id] = node
 
             # edges
@@ -85,7 +86,7 @@ class Graph:
         else:
             # nodes
             for i, graphviz_node in enumerate(G.nodes()):
-                node = Node(_id=graphviz_node.get_name(),number=i)
+                node = Node(_id=graphviz_node.get_name(),number=i,colour=colour)
                 self.nodes[node.id] = node
 
             # edges
@@ -106,7 +107,7 @@ class Graph:
     def add_node(self, node_id):
         self.nodes[node_id] = Node(node_id)
 
-    def return_fig(self,labels=True,axis=False,subgraphs=False, title=None, bundled=False):
+    def return_fig(self,labels=True,axis=False,subgraphs=False, title=None, bundled=False, zorder=1):
         print("Updating Figure")
         if subgraphs:
             for name, subgraph in self.subgraphs.items():
@@ -127,18 +128,20 @@ class Graph:
                     edge.get_fig_coordinates(self.ax,self.ax)
                 else:
                     edge.update_line()
+                    edge.line.zorder = -zorder # Ensure Edges are behind Nodes
                     self.ax.add_patch(edge.line)
 
 
             for node in self.nodes.values():
-                    node.circle.radius = node_radius
-                    self.ax.add_patch(node.circle)
-                    if labels:
-                        node.show_label(self.ax)
+                node.circle.radius = node_radius
+                node.circle.zorder = zorder # Ensure Nodes are in front of Edges
+                self.ax.add_patch(node.circle)
+                if labels:
+                    node.show_label(self.ax)
 
             self.fig.canvas.draw()
             if bundled:
-                bundled_edges = edge_bundling_precomputed(self,C = 5, I = 30 ,s = 0.04, n0 = 2, kP = 0.1)
+                bundled_edges = edge_bundling_precomputed(self,C = 5, I = 20 ,s = .1, n0 = 2, kP =.01)
 
                 for edge, control_points in bundled_edges.items():
 
@@ -546,7 +549,7 @@ class Graph:
                         fig.add_artist(conn_patch)
 
         if bundled[0]:
-            bundled_edges = edge_bundling(self,C = 6, I = 50 ,s = 0.04, n0 = 2, kP =0.01)
+            bundled_edges = edge_bundling_precomputed(self,C = 6, I = 30 ,s = .1, n0 = 2, kP =.01)
 
             for edge, control_points in bundled_edges.items():
 

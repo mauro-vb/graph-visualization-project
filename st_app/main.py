@@ -4,6 +4,8 @@ from classes_clean.node import TreeNode
 import matplotlib.pyplot as plt
 from st_app.helper_functions.step4 import *
 
+colours = {"rome.dot":"#98c412", "LesMiserables.dot": "#6096e6", "JazzNetwork.dot": "#e3cc49",
+               "noname.dot":"#bfbfbb","devonshiredebate_withclusters.dot":"#b04dd1"}
 
 def main():
     st.set_option('deprecation.showPyplotGlobalUse', False)
@@ -20,6 +22,7 @@ def main():
     #     st.write("Note: N represents the size of the graph.")
     # st.text("Main page. We can add some information here, maybe the link to our paper.")
     pages = {"Step 1": step_1,"Step 2": step_2, "Step 6":step_6, "Step 4": step_4,"Step 5": step_5, "Step 3":step_3}
+
     with st.sidebar:
         page_step = st.radio(
             "Choose step:",
@@ -31,10 +34,10 @@ def main():
 def step_1():
     st.title("Step 1: Read and draw a graph")
 
-    example_graphs = {"Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {"Rome (N=)": "rome.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
-    g = Graph("Datasets/" + example_graphs[selected_graph])
+    g = Graph("Datasets/" + example_graphs[selected_graph],colour=colours[example_graphs[selected_graph]])
     bundled= st.toggle("Edge Bundling")
     selected_layout = st.radio("Layout type", ["Random", "Circular"])
     if st.button("Visualize Graph"):
@@ -52,24 +55,26 @@ def step_2():
     example_graphs = {"Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
-    g = Graph("Datasets/" + example_graphs[selected_graph])
-    selected_graph_traversal = st.radio("Graph traversal type", ["DFS", "BFS"])
+    g = Graph("Datasets/" + example_graphs[selected_graph],colour=colours[example_graphs[selected_graph]])
+    selected_graph_traversal = st.radio("Graph traversal type", ["BFS", "DFS"])
     toggle = st.toggle("Non-tree Edges")
+    labels = st.toggle("Label Tree Nodes")
 
 
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
+            root = max([(label, node.degree()) for label, node in g.nodes.items()],key=lambda x: x[1])[0] #list(g.nodes.keys())[0]
             if selected_graph_traversal == "DFS":
-                g.dfs('1')
+                g.dfs(root)
                 tree_dict = g.dfs_tree
                 non_tree_edges = g.dfs_non_tree_edges
             if selected_graph_traversal == "BFS":
-                g.bfs('1')
+                g.bfs(root)
                 tree_dict = g.bfs_tree
                 non_tree_edges = g.bfs_non_tree_edges
 
             t = TreeNode(next(iter(tree_dict))).build_tree_from_dict(tree_dict)
-            plots = {False : t.draw_tree(), True: t.draw_tree(non_tree_edges=non_tree_edges)}
+            plots = {False : t.draw_tree(labels=labels,colour=colours[example_graphs[selected_graph]]), True: t.draw_tree(labels=labels,non_tree_edges=non_tree_edges,colour=colours[example_graphs[selected_graph]])}
             st.pyplot(plots[toggle])
 
 def step_3():
@@ -78,7 +83,7 @@ def step_3():
     example_graphs = {"Small directed Network (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
-    g = Graph("Datasets/" + example_graphs[selected_graph])
+    g = Graph("Datasets/" + example_graphs[selected_graph],colour=colours[example_graphs[selected_graph]])
     embeder_names = ["Eades", "Fruchterman & Reingold"]
     chosen_embeder = st.radio("Embedder type", embeder_names)
     if chosen_embeder == "Fruchterman & Reingold":
@@ -140,7 +145,7 @@ def step_5():
     edge_bundling = st.toggle("Bundle Intra-layer Edges"), st.toggle("Bundle Subgraph Edges (Not recommended, may take several minutes to compute)")
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
-            g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs)
+            g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs,colour=colours[example_graphs[selected_graph]])
             g.random_layout(subgraphs=True)
             g.spring_embedder_f(ideal_length=.2, gravitational_constant=.1,magnetic_constant=.1)
             g.return_subplots(bundled=edge_bundling)

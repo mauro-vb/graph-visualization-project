@@ -149,7 +149,7 @@ def edge_bundling_precomputed(graph, n0, C, I, s, kP):
                                     Q_j = np.array(other_control_points[j])
                                     #compatibility_score = compatibility_scores[(edge_tuple,other_edge)]
                                                         #
-                                    distance = np.linalg.norm(P_i - Q_j) * 100
+                                    distance = np.linalg.norm(P_i - Q_j) * 1000
 
                                     if distance > 0.0 and compatibility_score > 0.55:
                                         #compatibility_score = Ce((P_i_minus_1, P_i_plus_1), (other_control_points[j - 1], other_control_points[j + 1]))
@@ -215,7 +215,7 @@ def edge_bundling(graph, n0, C, I, s, kP):
                             for j in range(1, len(other_control_points) - 1):
                                 Q_j = np.array(other_control_points[j])
                                 compatibility_score = Ce((P_i_minus_1, P_i_plus_1), (other_control_points[j - 1], other_control_points[j + 1]))
-                                distance = np.linalg.norm(P_i - Q_j) * 10
+                                distance = np.linalg.norm(P_i - Q_j) * 100
 
                                 if distance > 0.001 and compatibility_score > 0.55:
                                     F_electrostatic = compatibility_score / distance
