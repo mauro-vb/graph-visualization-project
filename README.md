@@ -1,40 +1,40 @@
+# Relational and High-Dimensional Data Visualization
 
-# Graph Visualization CLI App
+## Overview
 
-This CLI app will generate a graph given an graph in an edge list format (DOT format).
+This project is a deliverable for the Utrecht University course Data Visualization (course code INFOMDV), focusing on the design and implementation of a system for visualizing relational and high-dimensional data. Utilizing Streamlit, the application offers interactive visualizations to explore some example datasets through graph-based representations and high-dimensional data projections. The assignment is divided into steps which can be further explored using the deliverable.
 
-## Usage
+## Features
 
-1. First, ensure you have Python installed on your system.
+- Visualization of graph layouts using force-directed algorithms.
+- Visualization of high-dimensional datasets via techniques such as MDS, t-SNE, and ISOMAP.
+- Adjustable parameters for graph layout algorithms to explore different visualizations.
+- Support for importing graph data from `.dot` files.
 
-2. Clone or download the repository to your local machine.
+## Getting Started
 
-3. Navigate to the directory containing the `main.py` file in your terminal.
+### Prerequisites
 
-4. Run the following command:
+Ensure you have Python installed on your system. This project is built using Python 3.8.5, but it should be compatible with other Python 3 versions.
 
-`python main.py <path_to_graph_file> [--xlim XMIN XMAX] [--ylim YMIN YMAX] [--layout {circular, random}] [--axis] [--color COLOR] [--node_tag]`
+### Installation
 
-Replace `<path_to_graph_file>` with the path to the file containing the graph data in DOT format.
+1. Clone the repository to your local machine:\n\
+   ```bash
+   git clone https://github.com/yourusername/yourprojectname.git\n\
+   ```
 
-### Optional Arguments:
+2. Navigate to the project directory:\n\
+   ```bash
+   cd dv_app
+   ```
 
-- `--xlim XMIN XMAX`: Set custom x-axis limits for the plot. Default is [0, 1].
-- `--ylim YMIN YMAX`: Set custom y-axis limits for the plot. Default is [0, 1].
-- `--layout {circular, random}`: Choose the layout type for graph visualization. Default is circular.
-- `--axis`: Display axis on the plot.
-- `--color COLOR`: Choose the color for nodes. Default is green. You can choose from a variety of colors provided by Matplotlib.
-- `--node_tag`: Display node numbers on the plot.
-
-### Example:
-
-python main.py graph_data.dot --xlim 0 10 --ylim 0 10 --layout random --axis --color red --node_tag
-
-
-This command visualizes the graph stored in `graph_data.dot` file using a random layout, with custom x-axis and y-axis limits set to [0, 10], displaying axis on the plot, using red color for nodes, and displaying node numbers on the plot.
-
-## Dependencies
-
-- numpy
-- matplotlib
-- pygraphviz
+3. Install the required Python packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+### Running the Application\n\
+To start the Streamlit application, run the following command in the terminal from the project directory:\n\
+```bash
+streamlit run main.py
+```
