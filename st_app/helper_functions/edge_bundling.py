@@ -100,6 +100,9 @@ def edge_bundling_precomputed(graph, n0, C, I, s, kP):
     compatibility_scores = {}
     ##
     B = {}
+    if not graph.edges.items(): # avoid edge bundling if graph has no intra-layer edges
+        return B
+
     for edge_tuple, edge in graph.edges.items():
         if edge.fig_coordinates:
             B[edge_tuple] = subdivide_edge(edge.fig_coordinates, n0)

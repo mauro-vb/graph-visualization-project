@@ -1,4 +1,4 @@
-from matplotlib.patches import ConnectionPatch,Circle
+from matplotlib.patches import ConnectionPatch
 
 
 class Edge:
@@ -16,16 +16,13 @@ class Edge:
         self.node1, self.node2 = n1, n2
         self.circle1 = n1.circle
         self.circle2 = n2.circle
-        self.inverted = False
         self.weight = weight
         self.fig_coordinates = None
-        if self.directed:
-            if self.inverted:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=0.7, color='red', arrowstyle="->")
-            else:
-                self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=0.7, color='red', arrowstyle="->")
-        else:
-            self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data", lw=0.7, color='grey',zorder=1)
+
+        # Define the visual representation of the edge based on its directedness
+        arrowstyle = "->" if directed else "-"
+        self.line = ConnectionPatch(self.circle1.center, self.circle2.center, "data", "data",
+                                    lw=0.7, color='grey', arrowstyle=arrowstyle, zorder=1 if not directed else 2)
 
     def update_line(self, ax1=None, ax2=None, color="grey", coordsA='data', coordsB='data'):
         """

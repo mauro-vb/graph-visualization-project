@@ -6,37 +6,37 @@ from collections import deque
 import math
 
 from st_app.helper_functions.edge_bundling import edge_bundling, edge_bundling_precomputed
-from classes_clean.node import Node
-from classes_clean.edge import Edge
+from data_structures.node import Node
+from data_structures.edge import Edge
 
 
 class Graph:
     def __init__(self, incoming_dot_file=None, directed = False, subgraphs = False, a_subgraph = False, selected_subgraphs=None,weight_name="weight",colour="g"):
-        # directed graph
+        """
+        Initialize a Graph instance from a DOT file, supporting subgraphs and directed edges.
+
+        Args:
+            incoming_dot_file (str, optional): Path to a DOT file to load the graph from.
+            directed (bool, optional): Whether the graph is directed. Defaults to False.
+            subgraphs (bool, optional): Whether to consider subgraphs. Defaults to False.
+            a_subgraph (bool, optional): Whether this instance represents a subgraph. Affects figure creation.
+            selected_subgraphs (list, optional): Specific subgraphs to load, if not all are needed.
+            weight_name (str, optional): Attribute name for edge weights in the DOT file. Defaults to "weight".
+            colour (str, optional): Default colour for nodes. Defaults to "g" (green).
+        """
         self.directed = directed
-        # graph nodes and edges
         self.nodes, self.edges = {}, {}
         self.subgraphs = None
-        if incoming_dot_file:
-            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name,colour=colour)
-
-        # graph figure for visualisation
-        self.fig = None if a_subgraph or subgraphs else plt.figure(figsize=(7,7))
-        self.ax =  None if a_subgraph or subgraphs else self.fig.gca()
+        self.fig = None if a_subgraph or subgraphs else plt.figure(figsize=(7, 7))
+        self.ax = None if a_subgraph or subgraphs else self.fig.gca()
         self.axes = []
-        self.min_max_x = np.array([0,1])
-        self.min_max_y = np.array([0,1])
+        self.min_max_x, self.min_max_y = np.array([0, 1]), np.array([0, 1])
+        self.dfs_order, self.bfs_order = [], []
+        self.dfs_tree, self.bfs_tree = {}, {}
+        self.bfs_non_tree_edges, self.dfs_non_tree_edges = None, None
 
-        # graph traversals
-        self.dfs_order = []
-        self.bfs_order= []
-        # trees
-        self.dfs_tree = {}
-        self.bfs_tree = {}
-
-        self.bfs_non_tree_edges = None
-        self.dfs_non_tree_edges = None
-
+        if incoming_dot_file:
+            self.load_graph(incoming_dot_file, subgraphs=subgraphs, selected_subgraphs=selected_subgraphs, weight_name=weight_name, colour=colour)
 
     # General Purposes
     def load_graph(self, dot_file_path, subgraphs=False, selected_subgraphs=None,weight_name="weight",colour="g"):
@@ -104,32 +104,30 @@ class Graph:
                     edge = Edge(self.nodes[node1_id], self.nodes[node2_id], weight=weight)
                 self.edges[(node1_id, node2_id)] = edge
 
-    def add_node(self, node_id):
-        self.nodes[node_id] = Node(node_id)
-
-    def return_fig(self,labels=True,axis=False,subgraphs=False, title=None, bundled=False, zorder=1):
+    def return_fig(self,labels=False,axis=False,subgraphs=False, title=None, bundled=False, zorder=1, draw_edges=True):
         print("Updating Figure")
         if subgraphs:
             for name, subgraph in self.subgraphs.items():
                 subgraph.return_fig(title=name)
         else:
 
-            node_radius = min(.1,(self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
-
+            node_radius = min(1.2,(self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
             x_lim = self.min_max_x + np.array([-node_radius,node_radius])
             y_lim = self.min_max_y + np.array([-node_radius,node_radius])
             self.ax.set_xlim(x_lim)
             self.ax.set_ylim(y_lim)
             self.ax.set_title(title)
+            self.ax.set_aspect('equal', adjustable='box')
             plt.axis(axis)
 
-            for edge in self.edges.values():
-                if bundled:
-                    edge.get_fig_coordinates(self.ax,self.ax)
-                else:
-                    edge.update_line()
-                    edge.line.zorder = -zorder # Ensure Edges are behind Nodes
-                    self.ax.add_patch(edge.line)
+            if draw_edges:
+                for edge in self.edges.values():
+                    if bundled:
+                        edge.get_fig_coordinates(self.ax,self.ax)
+                    else:
+                        edge.update_line()
+                        edge.line.zorder = -zorder # Ensure Edges are behind Nodes
+                        self.ax.add_patch(edge.line)
 
 
             for node in self.nodes.values():
@@ -141,7 +139,7 @@ class Graph:
 
             self.fig.canvas.draw()
             if bundled:
-                bundled_edges = edge_bundling_precomputed(self,C = 5, I = 20 ,s = .1, n0 = 2, kP =.01)
+                bundled_edges = edge_bundling_precomputed(self,C = 4, I = 20 ,s = .1, n0 = 2, kP =.01)
 
                 for edge, control_points in bundled_edges.items():
 
@@ -161,74 +159,115 @@ class Graph:
             return self.fig
 
     ## STEP 1
-    def circular_layout(self, center=(.5,.5), radius=.5, subgraphs=False):
+    def random_layout(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0), subgraphs=False):
+        """
+        Positions the nodes at random locations within specified ranges.
+
+        Args:
+        x_range (tuple, optional): The range of x coordinates. Defaults to (0.0, 1.0).
+        y_range (tuple, optional): The range of y coordinates. Defaults to (0.0, 1.0).
+        subgraphs (bool, optional): If True, applies the random layout to each subgraph. Defaults to False.
+        """
+        # Apply layout to subgraphs if specified
+        if subgraphs:
+            for subgraph in self.subgraphs.values():
+                subgraph.random_layout()
+
+        # Position each node at a random location within the specified ranges
+        for node in self.nodes.values():
+            x = np.random.uniform(x_range[0], x_range[1])  # Random x coordinate
+            y = np.random.uniform(y_range[0], y_range[1])  # Random y coordinate
+            node.circle.center = np.array([x, y])  # Set node position
+
+    def circular_layout(self, center=(.5, .5), radius=.5, subgraphs=False):
+        """
+        Arranges the nodes in a circular layout centered at a specified point.
+
+        Args:
+            center (tuple, optional): The (x, y) coordinates for the center of the circle. Defaults to (.5, .5).
+            radius (float, optional): The radius of the circle. Defaults to .5.
+            subgraphs (bool, optional): If True, applies the circular layout to each subgraph. Defaults to False.
+        """
+        # Apply layout to subgraphs if specified
         if subgraphs:
             for subgraph in self.subgraphs.values():
                 subgraph.circular_layout()
 
-        N = len(self.nodes)
-        cx, cy = center
-        i = 0
-        for node in self.nodes.values():
-            angle = 2* np.pi * i / N
-            x = cx + radius * np.cos(angle)
-            y = cy + radius * np.sin(angle)
-            node.circle.center = np.array([x,y])
-            i += 1
-
-    def random_layout(self, x_range=(0.0, 1.0), y_range=(0.0, 1.0), subgraphs=False):
-        if subgraphs:
-            for subgraph in self.subgraphs.values():
-                subgraph.random_layout()
-        for node in self.nodes.values():
-            x = np.random.uniform(x_range[0], x_range[1])
-            y = np.random.uniform(y_range[0], y_range[1])
-            node.circle.center = np.array([x,y])
+        # Calculate the position of each node to distribute them evenly in a circle
+        N = len(self.nodes)  # Total number of nodes
+        cx, cy = center  # Center coordinates
+        for i, node in enumerate(self.nodes.values()):
+            angle = 2 * np.pi * i / N  # Angle for the current node
+            x = cx + radius * np.cos(angle)  # X coordinate
+            y = cy + radius * np.sin(angle)  # Y coordinate
+            node.circle.center = np.array([x, y])  # Set node position
 
     ## STEP 2 Graph Traversals
-    def dfs(self, root):
-        visited = set()
-        self.dfs_order = []
-        self.dfs_tree = {root: []}
-        self.dfs_non_tree_edges = {node_id:[] for node_id in self.nodes.keys()}
-        def dfs_recursive(node_id):
-            visited.add(node_id)
-            self.dfs_order.append(node_id)
-            for neighbour, _ in self.nodes[node_id].out_neighbours:
-                if neighbour.id not in visited:
-                    self.dfs_tree[node_id].append(neighbour.id)
-                    self.dfs_tree[neighbour.id] = []
-                    dfs_recursive(neighbour.id)
-                else:
-                    self.dfs_non_tree_edges[node_id].append(neighbour.id)
-
-        dfs_recursive(root)
-
     def bfs(self, root):
-        visited = set()
-        self.bfs_order = []
-        self.bfs_tree = {root: []}
-        self.bfs_non_tree_edges = {root:[]}
-        queue = deque([root])
+        """
+        Performs a breadth-first search (BFS) starting from a specified root node.
+
+        Args:
+            root: The identifier for the root node from which the BFS starts.
+        """
+        visited = set()  # Keep track of visited nodes
+        self.bfs_order = []  # Order of nodes visited in BFS
+        self.bfs_tree = {root: []}  # Tree resulting from the BFS
+        self.bfs_non_tree_edges = {root: []}  # Edges not in the BFS tree
+        queue = deque([root])  # Queue for BFS
         visited.add(root)
+
         while queue:
             node_id = queue.popleft()
-            for neighbour,_ in self.nodes[node_id].out_neighbours:
+            for neighbour, _ in self.nodes[node_id].out_neighbours:
                 if neighbour.id not in visited:
                     visited.add(neighbour.id)
                     queue.append(neighbour.id)
 
-                    #
-                    for non_tree_neighbour,_ in self.nodes[node_id].out_neighbours + self.nodes[node_id].in_neighbours:
+                    # Handling non-tree edges
+                    for non_tree_neighbour, _ in self.nodes[node_id].out_neighbours + self.nodes[node_id].in_neighbours:
                         if non_tree_neighbour != neighbour:
                             self.bfs_non_tree_edges[node_id].append(non_tree_neighbour.id)
 
+                    # Update BFS tree and order
                     if neighbour.id not in self.bfs_tree:
                         self.bfs_tree[neighbour.id] = []
-                        #
                         self.bfs_non_tree_edges[neighbour.id] = []
                     self.bfs_tree[node_id].append(neighbour.id)
                     self.bfs_order.append(neighbour.id)
+
+    def dfs(self, root):
+        """
+        Performs a depth-first search (DFS) starting from a specified root node.
+
+        Args:
+            root: The identifier for the root node from which the DFS starts.
+        """
+        visited = set()  # Keep track of visited nodes
+        self.dfs_order = []  # Order of nodes visited in DFS
+        self.dfs_tree = {root: []}  # Tree resulting from the DFS
+        self.dfs_non_tree_edges = {node_id: [] for node_id in self.nodes.keys()}  # Edges not in the DFS tree
+
+        def dfs_recursive(node_id):
+            """
+            Recursively visits nodes in a depth-first manner.
+
+            Args:
+                node_id: The identifier of the current node being visited.
+            """
+            visited.add(node_id)
+            self.dfs_order.append(node_id)
+            for neighbour, _ in self.nodes[node_id].out_neighbours:
+                if neighbour.id not in visited:
+                    # Node not visited, add to DFS tree and continue recursion
+                    self.dfs_tree[node_id].append(neighbour.id)
+                    self.dfs_tree[neighbour.id] = []
+                    dfs_recursive(neighbour.id)
+                else:
+                    # Node already visited, add to non-tree edges
+                    self.dfs_non_tree_edges[node_id].append(neighbour.id)
+
+        dfs_recursive(root)  # Start DFS from root
 
     # STEP 3 FORCE DIRECTED GRAPHS
     def repulsive_forces(self, k):  #k is C_rep
@@ -389,68 +428,6 @@ class Graph:
                 t += 1
 
     ## STEP 5 Subplots
-    def update_ax(self, labels=True, axis=False, title=None, ax = None):
-        print("Updating Figure")
-        node_radius = min(.1, (self.min_max_x[1] - self.min_max_x[0]) / (5 * math.sqrt(len(self.nodes))))
-
-        for edge in self.edges.values():
-                edge.update_line()
-                ax.add_patch(edge.line)
-
-        for node in self.nodes.values():
-            node.circle.radius = node_radius
-            ax.add_patch(node.circle)
-            if labels:
-                node.show_label(ax)
-
-        x_lim = self.min_max_x + np.array([-(node_radius+.1), node_radius+.1])
-        y_lim = self.min_max_y + np.array([-(node_radius+.1), node_radius+.1])
-        ax.set_xlim(x_lim)
-        ax.set_ylim(y_lim)
-        ax.set_title(title)
-
-        ax.axis(axis)
-
-    def return_subplots(self, labels=True, axis=False, title=None):
-        num_subgraphs = len(self.subgraphs)
-        num_cols = int(np.ceil(np.sqrt(num_subgraphs)))  # Ensure at least 1 column
-        num_rows = (num_subgraphs + num_cols - 1) // num_cols  # Ensure at least 1 row
-
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(10, 8), sharex='col', sharey='row')
-        # Flatten axes array if multiple axes, else wrap in a list for consistent handling
-        axes_flat = axes.flatten() if num_subgraphs > 1 else [axes]
-
-        for ax in axes_flat[num_subgraphs:]:  # Hide unused subplots
-            ax.set_visible(False)
-
-        for (name, subgraph), ax in zip(self.subgraphs.items(), axes_flat):
-            subgraph.update_ax(labels=labels, axis=axis, title=name, ax=ax)
-            ax.set_aspect('equal')
-            # Draw bounding box around the subgraph
-            min_x, max_x = ax.get_xlim()
-            min_y, max_y = ax.get_ylim()
-            bbox = Rectangle((min_x, min_y), max_x - min_x, max_y - min_y, linewidth=2, edgecolor="green", facecolor='none')
-            ax.add_patch(bbox)
-
-            # for edge in self.edges.values():
-            #     node1_id, node2_id = edge.node1.id, edge.node2.id
-            #     subgraph1 = self.find_subgraph_containing_node(node1_id)
-            #     subgraph2 = self.find_subgraph_containing_node(node2_id)
-            #     if subgraph1 is not None and subgraph2 is not None and subgraph1 != subgraph2:
-            #         # Draw connection between subgraphs
-            #         ax1 = axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
-            #         ax2 = axes_flat[list(self.subgraphs.keys()).index(subgraph2)]
-            #         edge.update_line(ax1=ax1,ax2=ax2,color="red",coordsA='data',coordsB='data')
-            #         ax.add_patch(edge.line)
-            #     else:
-            #         edge.update_line()
-            #         ax=axes_flat[list(self.subgraphs.keys()).index(subgraph1)]
-            #         ax.add_patch(edge.line)
-
-        plt.tight_layout()
-        plt.suptitle(title, y=1.02)
-        plt.show()
-
     def find_subgraph_containing_node(self, node_id):
         for name, subgraph in self.subgraphs.items():
             if node_id in subgraph.nodes:
@@ -462,7 +439,6 @@ class Graph:
             if node_id in subgraph.nodes:
                 return subgraph_name
 
-#######
     def update_ax(self, labels=True, axis=False, title=None, ax=None,bundled=False):
         print("Updating Figure")
         # Dynamically adjust node radius based on the subplot size and number of nodes
@@ -489,8 +465,6 @@ class Graph:
         ax.set_ylim(min_y - buffer, max_y + buffer)
         ax.set_title(title)
         plt.axis(axis)
-
-
 
     def return_subplots(self, labels=True, axis=True, title=None, figsize=(15, 15),bundled=(False,False)):
         num_subgraphs = len(self.subgraphs)
@@ -567,25 +541,80 @@ class Graph:
         plt.suptitle(title)
         return fig
 
-
-    # STEP 6
+    # STEP 6 PROJECTIONS FOR GRAPHS
     def distances_matrix(self):
+        """
+        Calculates the distances matrix for all pairs of nodes in the graph,
+        using the Floyd-Warshall algorithm to find the shortest paths.
+
+        Returns:
+            np.ndarray: A 2D array of distances between all pairs of nodes.
+        """
         N = len(self.nodes)
-        D = np.ones((N,N)) * 10000
-        numbered_nodes = {node.number:node for node in self.nodes.values()}
+        D = np.ones((N,N)) * 10000 # Start with a high value representing 'infinite' distance
+
+        numbered_nodes = {node.number:node for node in self.nodes.values()} # Map nodes to their numbers for easier access
         numbered_edges = {(edge.node1.number, edge.node2.number): edge for edge in self.edges.values()}
         for (i,j), edge in numbered_edges.items():
-            D[i,j] = int(edge.weight) if edge.weight else 1 # if no weights give path vlalue
+            D[i,j] = int(edge.weight) if edge.weight else 1 # Use weight if available, else default to 1
             D[j, i] = D[i,j] # symmetry!
 
-        #self loop
+        # Set the diagonal to 0 since the distance from a node to itself is always 0
         for i in range(N):
             D[i, i] = 0
 
+        # Floyd-Warshall algorithm: Update the distances matrix with shorter paths found via intermediate nodes
         for k, knode in numbered_nodes.items():
             for i, inode in numbered_nodes.items():
                 for j, jnode in numbered_nodes.items():
+                    # If a shorter path is found via node k, update the distances
                     if D[i,j] > D[i,k] + D[k,j]:
                         D[i,j] = D[i,k] + D[k,j]
                         D[j, i] = D[i, j] # symmetry!
+
+        self.D = D
         return D
+
+    def mds_coordinates(self,random_state=7):
+        from sklearn.manifold import MDS
+        D = self.distances_matrix()
+        mds = MDS(n_components=2, dissimilarity='precomputed',random_state=random_state)
+        Y = mds.fit_transform(D)
+        # Sorting and iterating through nodes based on Node.number
+        for i, node in enumerate(sorted(self.nodes.values(), key=lambda val: val.number)):
+
+            node.circle.center =  Y[i]
+            self.min_max_x = np.array([min(node.circle.center[0],self.min_max_x[0]),
+                                        max(node.circle.center[0],self.min_max_x[1])])
+            self.min_max_y = np.array([min(node.circle.center[1],self.min_max_y[0]),
+                                        max(node.circle.center[1],self.min_max_y[1])])
+
+    def tsne_coordinates(self, perplexity = 7, random_state=0):
+        from sklearn.manifold import TSNE
+        D = self.D
+        tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate=1, metric='precomputed',random_state=random_state)
+        Y = tsne.fit_transform(D)
+
+        # Sorting and iterating through nodes based on Node.number
+        for i, node in enumerate(sorted(self.nodes.values(), key=lambda val: val.number)):
+
+            node.circle.center =  Y[i]
+            self.min_max_x = np.array([min(node.circle.center[0],self.min_max_x[0]),
+                                        max(node.circle.center[0],self.min_max_x[1])])
+            self.min_max_y = np.array([min(node.circle.center[1],self.min_max_y[0]),
+                                        max(node.circle.center[1],self.min_max_y[1])])
+
+    def isomap_coordinates(self, n_neighbours = 10):
+        from sklearn.manifold import Isomap
+        D = self.D
+        iso = Isomap(n_neighbors=n_neighbours, n_components=2,metric='precomputed')
+        Y = iso.fit_transform(D)
+
+        # Sorting and iterating through nodes based on Node.number
+        for i, node in enumerate(sorted(self.nodes.values(), key=lambda val: val.number)):
+
+            node.circle.center =  Y[i]
+            self.min_max_x = np.array([min(node.circle.center[0],self.min_max_x[0]),
+                                        max(node.circle.center[0],self.min_max_x[1])])
+            self.min_max_y = np.array([min(node.circle.center[1],self.min_max_y[0]),
+                                        max(node.circle.center[1],self.min_max_y[1])])

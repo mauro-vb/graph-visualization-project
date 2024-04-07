@@ -1,7 +1,6 @@
 import streamlit as st
-from classes_clean.graph import Graph
-from classes_clean.node import TreeNode
-import matplotlib.pyplot as plt
+from data_structures.graph import Graph
+from data_structures.node import TreeNode
 from st_app.helper_functions.step4 import *
 
 colours = {"rome.dot":"#98c412", "LesMiserables.dot": "#6096e6", "JazzNetwork.dot": "#e3cc49",
@@ -32,21 +31,23 @@ def main():
         pages[page_step]()
 
 def step_1():
+
     st.title("Step 1: Read and draw a graph")
 
-    example_graphs = {"Rome (N=)": "rome.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {"Rome (N=100)": "rome.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
     g = Graph("Datasets/" + example_graphs[selected_graph],colour=colours[example_graphs[selected_graph]])
     bundled= st.toggle("Edge Bundling")
     selected_layout = st.radio("Layout type", ["Random", "Circular"])
+    labels = st.toggle("Label Nodes")
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
             if selected_layout == "Random":
                 g.random_layout()
             if selected_layout == "Circular":
                 g.circular_layout()
-            g.return_fig(bundled=bundled)
+            g.return_fig(bundled=bundled,labels=labels)
 
             st.pyplot(g.fig)
 
@@ -78,30 +79,54 @@ def step_2():
             st.pyplot(plots[toggle])
 
 def step_3():
-    st.title("Step 3: Compute a force directed layout")
+    st.title("Step 3: Compute a force-directed layout")
 
-    example_graphs = {"Small directed Network (N=24)":"noname.dot","Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
-    selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
+    example_graphs = {
+        "Les Misérables network (N=77)": "LesMiserables.dot",
+        "Rome (N=100)": "rome.dot",
+        "Small directed Network (N=24)": "noname.dot",
+        "Jazz network (N=198)": "JazzNetwork.dot"
+    }
+    selected_graph = st.selectbox("Choose an example graph to display", list(example_graphs.keys()))
 
-    g = Graph("Datasets/" + example_graphs[selected_graph],colour=colours[example_graphs[selected_graph]])
-    embeder_names = ["Eades", "Fruchterman & Reingold"]
-    chosen_embeder = st.radio("Embedder type", embeder_names)
-    if chosen_embeder == "Fruchterman & Reingold":
-        g_const = st.slider("Gravitational force",min_value=.0,max_value=.1,value=.01)
-        mag_constant = st.slider("Magentic Force",min_value=.0,max_value=.4, value=.2)
-    spring_embeders = {name:method for name , method in zip(embeder_names,[g.spring_embedder, g.spring_embedder_f])}
+    # Assuming the Graph class and colours dictionary are defined elsewhere
+    g = Graph("Datasets/" + example_graphs[selected_graph], colour=colours[example_graphs[selected_graph]])
+
+
+    # Use columns to place parameters inputs on the right
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        embedder_names = ["Eades", "Fruchterman & Reingold"]
+        chosen_embedder = st.radio("Embedder type", embedder_names)
+        labels = st.toggle("Label Nodes")
+
+    with col2:
+
+
+        # Display parameters based on the chosen embedder
+        if chosen_embedder == "Fruchterman & Reingold":
+            g_const = st.number_input("Gravitational force", min_value=0.0, max_value=1.0, value=0.05, step=0.01)
+            mag_constant = st.number_input("Magnetic Force", min_value=0.0, max_value=1.0, value=0.2, step=0.01)
+        elif chosen_embedder == "Eades":
+            k_rep = st.number_input("Repulsion constant (k_rep)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+            k_spring = st.number_input("Spring constant (k_spring)", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
+
+
 
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
             g.random_layout()
-            if chosen_embeder == "Fruchterman & Reingold":
-                spring_embeders[chosen_embeder](magnetic_constant=mag_constant,gravitational_constant=g_const)
-            else:
-                spring_embeders[chosen_embeder]()
+            spring_embedders = {
+                "Eades": lambda: g.spring_embedder(k_rep=k_rep, k_spring=k_spring),
+                "Fruchterman & Reingold": lambda: g.spring_embedder_f(gravitational_constant=g_const, magnetic_constant=mag_constant)
+            }
 
-            g.return_fig()
+            # Execute the selected embedder function with the specified parameters
+            spring_embedders[chosen_embedder]()
 
-            st.pyplot(g.fig)
+            fig = g.return_fig(labels=labels)
+            st.pyplot(fig)
 
 def step_4():
     import networkx as nx
@@ -143,50 +168,62 @@ def step_5():
         selected_subgraphs = {sg:st.checkbox(sg) for sg in subgraphs}
     s_subgraphs = [sg for sg,b in selected_subgraphs.items() if b]
     edge_bundling = st.toggle("Bundle Intra-layer Edges"), st.toggle("Bundle Subgraph Edges (Not recommended, may take several minutes to compute)")
+    labels = st.toggle("Label Nodes")
     if st.button("Visualize Graph"):
         with st.spinner("Loading..."):
             g = Graph("Datasets/" + example_graphs[selected_graph],subgraphs=True,selected_subgraphs=s_subgraphs,colour=colours[example_graphs[selected_graph]])
             g.random_layout(subgraphs=True)
             g.spring_embedder_f(ideal_length=.2, gravitational_constant=.1,magnetic_constant=.1)
-            g.return_subplots(bundled=edge_bundling)
+            g.return_subplots(bundled=edge_bundling,labels=labels)
 
             st.pyplot(g.fig)
 
 def step_6():
-    from sklearn.manifold import MDS
-    from sklearn.manifold import Isomap
-    from sklearn.manifold import TSNE
-    st.title("Step 6: Projections for graphs")
-
-    example_graphs =  {"Les Misérables network (N=77)": "LesMiserables.dot", "Jazz network (N=198)":"JazzNetwork.dot"}
+    example_graphs = {
+        "Rome (N=100)": "rome.dot",
+        "Les Misérables network (N=77)": "LesMiserables.dot",
+        "Jazz network (N=198)": "JazzNetwork.dot"
+    }
     selected_graph = st.selectbox("Choose an example graph to display", example_graphs.keys())
 
-    g = Graph("Datasets/" + example_graphs[selected_graph])
-    selected_projection = st.radio("Graph traversal type", ["MDS", "t-SNE", "ISOMAP"])
-    if st.button("Visualize Graph"):
-        D = g.distances_matrix()
-        fig = plt.figure()
-        if selected_projection == "MDS":
-            # MDS with adjusted parameters
-            mds = MDS(n_components=2, random_state=6, dissimilarity='precomputed')
-            results = mds.fit(D)
-            coords = results.embedding_
-            plt.scatter(coords[:, 0], coords[:, 1], marker = 'o')
+    # Assuming the Graph class and colours dictionary are defined elsewhere
+    g = Graph("Datasets/" + example_graphs[selected_graph], colour=colours[example_graphs[selected_graph]])
 
-        if selected_projection == "t-SNE":
-            # t-SNE with adjusted parameters
-            tsne = TSNE(n_components=2, perplexity=10, learning_rate=1, random_state=0, metric='precomputed')
-            Y = tsne.fit_transform(D)
-            plt.scatter(Y[:, 0], Y[:, 1], marker = 'o')
+    # Use columns to organize the layout: the radio button and parameters input
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        selected_projection = st.radio("Graph traversal type", ["MDS", "t-SNE", "ISOMAP"])
+    with col2:
+        # Initialize parameters with None to use them outside of the "if"
+        random_state = None
+        n_neighbors = None
+
+        # Display parameters input next to the selected method if one is selected
+        if selected_projection in ["t-SNE", "MDS"]:
+            random_state = st.number_input("Random State", min_value=0, value=0, step=1, format="%d")
+            if selected_projection == "t-SNE":
+                perplexity = st.number_input("Perplexity", min_value=1, value=7, step=1, format="%d")
 
         if selected_projection == "ISOMAP":
-            # ISOMAP with adjusted parameters
-            iso = Isomap(n_neighbors=15, n_components=2,metric='precomputed')
-            iso.fit(D)
-            manifold_2Da = iso.transform(D)
-            plt.scatter(manifold_2Da[:, 0], manifold_2Da[:, 1], marker = 'o')
-        st.pyplot(fig)
+            # Assuming n_neighbors is relevant for t-SNE and ISOMAP
+            n_neighbours = st.number_input("N Neighbours", min_value=1, value=5, step=1, format="%d")
 
+    draw_edges = st.toggle("Draw Edges")
+    labels = st.toggle("Label Nodes")
+
+    if st.button("Visualize Graph"):
+        g.distances_matrix()
+        if selected_projection == "MDS":
+            g.mds_coordinates(random_state=random_state)  # Adjust your method calls accordingly
+            st.pyplot(g.return_fig(draw_edges=draw_edges,labels=labels))
+
+        elif selected_projection == "t-SNE":
+            g.tsne_coordinates(random_state=random_state, perplexity=perplexity)  # Adjust your method calls accordingly
+            st.pyplot(g.return_fig(draw_edges=draw_edges,labels=labels))
+
+        elif selected_projection == "ISOMAP":
+            g.isomap_coordinates(n_neighbours=n_neighbours)  # Adjust your method calls accordingly
+            st.pyplot(g.return_fig(draw_edges=draw_edges,labels=labels))
 
 
 

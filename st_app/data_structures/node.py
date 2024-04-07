@@ -52,7 +52,7 @@ class Node:
         return len(self.out_neighbours)
 
     def show_label(self, ax):
-        ax.text(*self.circle.center, str(self.id), size=6, ha='center', va='baseline', alpha=.5)
+        ax.text(*self.circle.center, str(self.id), size=min(10,450*self.circle.radius), ha='center', alpha=.8,color="black")
 
 class TreeNode(Node):
     """
@@ -234,6 +234,9 @@ class TreeNode(Node):
         return fig
 
     def find_tree_node(self, label):
+        """
+        Searches for and returns a node with the given label, within this tree.
+        """
         queue = [self]
         while queue:
             current_node = queue.pop(0)
