@@ -9,17 +9,6 @@ colours = {"rome.dot":"#98c412", "LesMiserables.dot": "#6096e6", "JazzNetwork.do
 def main():
     st.set_option('deprecation.showPyplotGlobalUse', False)
     st.title("Data Visualization")
-    # with st.expander("Note: Complexity and Graph Size"):
-    #     st.write("Each step has an associated computational complexity and operates on a graph of size N.")
-    #     st.write("Complexity of each step:")
-    #     st.write("- Step 1: O(N) for reading and drawing the graph.")
-    #     st.write("- Step 2: O(N) for extracting and visualizing trees.")
-    #     st.write("- Step 3: O(N^2) for computing a force-directed layout.")
-    #     st.write("- Step 4: O(N^2) for some hypothetical operation.")
-    #     st.write("- Step 5: O(N) for visualizing multilayer/clustered graphs and performing edge bundling.")
-    #     st.write("- Step 6: O(N^2) for performing projections for graphs.")
-    #     st.write("Note: N represents the size of the graph.")
-    # st.text("Main page. We can add some information here, maybe the link to our paper.")
     pages = {"Step 1": step_1,"Step 2": step_2, "Step 6":step_6, "Step 4": step_4,"Step 5": step_5, "Step 3":step_3}
 
     with st.sidebar:

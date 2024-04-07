@@ -1,11 +1,11 @@
 import pygraphviz
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, ConnectionPatch
+from matplotlib.patches import ConnectionPatch
 from collections import deque
 import math
 
-from st_app.helper_functions.edge_bundling import edge_bundling, edge_bundling_precomputed
+from helper_functions.edge_bundling import edge_bundling, edge_bundling_precomputed
 from data_structures.node import Node
 from data_structures.edge import Edge
 
