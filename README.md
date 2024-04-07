@@ -21,7 +21,7 @@ Ensure you have Python installed on your system. This project is built using Pyt
 
 1. Clone the repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/yourprojectname.git
+   git clone https://git.science.uu.nl/dataviz/dataviz
    ```
 
 2. Navigate to the project directory:
