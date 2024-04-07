@@ -21,7 +21,7 @@ Ensure you have Python installed on your system. This project is built using Pyt
 
 1. Clone the repository to your local machine:\n\
    ```bash
-   git clone https://github.com/yourusername/yourprojectname.git\n\
+   git clone https://github.com/yourusername/yourprojectname.git
    ```
 
 2. Navigate to the project directory:\n\
