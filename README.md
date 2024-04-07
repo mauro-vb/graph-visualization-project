@@ -19,14 +19,14 @@ Ensure you have Python installed on your system. This project is built using Pyt
 
 ### Installation
 
-1. Clone the repository to your local machine:\n\
+1. Clone the repository to your local machine:
    ```bash
    git clone https://github.com/yourusername/yourprojectname.git
    ```
 
-2. Navigate to the project directory:\n\
+2. Navigate to the project directory:
    ```bash
-   cd dv_app
+   cd path/to/dv_app
    ```
 
 3. Install the required Python packages:
@@ -34,7 +34,7 @@ Ensure you have Python installed on your system. This project is built using Pyt
    pip install -r requirements.txt
    ```
 ### Running the Application\n\
-To start the Streamlit application, run the following command in the terminal from the project directory:\n\
+To start the Streamlit application, run the following command in the terminal from the project directory:
 ```bash
 streamlit run main.py
 ```
